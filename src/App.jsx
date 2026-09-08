@@ -1,10 +1,271 @@
 import React, { useState, useEffect, useRef } from 'react';
 
+const tradingViewSymbols = {
+  BTC: 'BINANCE:BTCUSDT',
+  ETH: 'BINANCE:ETHUSDT',
+  USDT: 'CRYPTOCAP:USDT',
+  BNB: 'BINANCE:BNBUSDT',
+  SOL: 'BINANCE:SOLUSDT',
+  XRP: 'BINANCE:XRPUSDT',
+  ADA: 'BINANCE:ADAUSDT',
+  DOGE: 'BINANCE:DOGEUSDT',
+  AVAX: 'BINANCE:AVAXUSDT',
+  LINK: 'BINANCE:LINKUSDT',
+  DOT: 'BINANCE:DOTUSDT',
+  POL: 'BINANCE:POLUSDT',
+  XAUUSD: 'OANDA:XAUUSD',
+  XAGUSD: 'OANDA:XAGUSD',
+  XPTUSD: 'OANDA:XPTUSD',
+  XPDUSD: 'OANDA:XPDUSD',
+  SPX: 'SP:SPX',
+  NDX: 'NASDAQ:NDX',
+  DJI: 'DJ:DJI',
+  EURUSD: 'FX:EURUSD',
+  GBPUSD: 'FX:GBPUSD',
+  USDJPY: 'FX:USDJPY',
+  WTI: 'TVC:USOIL',
+  BRENT: 'TVC:UKOIL',
+  NATGAS: 'NYMEX:NG1!',
+};
+
+const cryptoLogoSlugs = {
+  POL: 'matic', RENDER: 'rndr', APT: 'aptos', FIL: 'filecoin', HBAR: 'hedera', IMX: 'immutable-x',
+  MKR: 'maker', RUNE: 'thorchain', AAVE: 'aave', XTZ: 'tezos', THETA: 'theta', FTM: 'fantom',
+  ALGO: 'algorand', EGLD: 'multiversx', CHZ: 'chiliz', KAVA: 'kava', GALA: 'gala', CRV: 'curve',
+  CAKE: 'pancakeswap', ZEC: 'zcash', DASH: 'dash', KSM: 'kusama', SNX: 'synthetix', CSPR: 'casper',
+  JTO: 'jito', PYTH: 'pyth', BONK: 'bonk', FLOKI: 'floki', UNI: 'uniswap', ATOM: 'cosmos',
+};
+
+const referenceLogoDomains = {
+  AAPL: 'apple.com',
+  MSFT: 'microsoft.com',
+  NVDA: 'nvidia.com',
+  TSLA: 'tesla.com',
+};
+
+const nonCryptoMarketSymbols = new Set(['AAPL', 'MSFT', 'NVDA', 'TSLA', 'XAUUSD', 'XAGUSD', 'XPTUSD', 'XPDUSD', 'SPX', 'NDX', 'DJI', 'EURUSD', 'GBPUSD', 'USDJPY', 'WTI', 'BRENT', 'NATGAS']);
+
+const languageLabels = {
+  en: { home: 'HOME', trade: 'TRADE', vip: 'VIP', videoAds: 'VIDEO ADS', share: 'SHARE', team: 'TEAM', history: 'HISTORY', groupChat: 'GROUP CHAT', support: 'SUPPORT', me: 'ME', light: 'Light', dark: 'Dark', withdraw: 'Withdraw' },
+  my: { home: 'ပင်မ', trade: 'အရောင်းအဝယ်', vip: 'VIP', videoAds: 'ဗီဒီယိုကြော်ငြာ', share: 'မျှဝေ', team: 'အဖွဲ့', history: 'မှတ်တမ်း', groupChat: 'ဂရုချတ်', support: 'အကူအညီ', me: 'အကောင့်', light: 'အလင်း', dark: 'အမှောင်', withdraw: 'ငွေထုတ်' },
+  th: { home: 'หน้าหลัก', trade: 'เทรด', vip: 'VIP', videoAds: 'โฆษณาวิดีโอ', share: 'แชร์', team: 'ทีม', history: 'ประวัติ', groupChat: 'แชทกลุ่ม', support: 'ช่วยเหลือ', me: 'บัญชี', light: 'สว่าง', dark: 'มืด', withdraw: 'ถอนเงิน' },
+};
+
+const uiTranslations = {
+  my: {
+    'Web3 Finance': 'Web3 ဘဏ္ဍာရေး',
+    'Light': 'အလင်း', 'Dark': 'အမှောင်', 'Withdraw': 'ငွေထုတ်',
+    'Secure Web3 Platform': 'လုံခြုံသော Web3 ပလက်ဖောင်း',
+    'Explore VIP Plans': 'VIP အစီအစဉ်များကြည့်ရန်', 'Invite & Earn': 'ဖိတ်ခေါ်ပြီး ရယူရန်',
+    'Total Assets': 'ပိုင်ဆိုင်မှုစုစုပေါင်း', 'Deposit': 'ငွေသွင်း',
+    'Market Trends (Live 50+ Assets)': 'စျေးကွက်လမ်းကြောင်း (Live ပိုင်ဆိုင်မှု ၅၀+)',
+    'Search coin name or symbol...': 'Coin အမည် သို့မဟုတ် သင်္ကေတရှာရန်...',
+    'Asset': 'ပိုင်ဆိုင်မှု', 'Live Price (USDT)': 'လက်ရှိစျေးနှုန်း (USDT)', '24h Trend Chart': '၂၄ နာရီလမ်းကြောင်း', '24h Change': '၂၄ နာရီပြောင်းလဲမှု', 'Action': 'လုပ်ဆောင်ချက်', 'Trade': 'အရောင်းအဝယ်',
+    'CRYPTO TRADE': 'Crypto အရောင်းအဝယ်', 'Demo trading mode': 'စမ်းသပ်အရောင်းအဝယ်', 'Place Order': 'အော်ဒါတင်ရန်',
+    'Buy': 'ဝယ်ရန်', 'Sell': 'ရောင်းရန်', 'Amount (USDT)': 'ပမာဏ (USDT)', 'Enter amount': 'ပမာဏထည့်ပါ',
+    'VIP INVESTMENT TIERS (VIP 1 - VIP 10)': 'VIP ရင်းနှီးမြှုပ်နှံမှုအဆင့်များ (VIP ၁ - VIP ၁၀)',
+    'USDT WITHDRAWAL': 'USDT ငွေထုတ်ခြင်း', 'Submit Withdrawal': 'ငွေထုတ်ရန်တင်ပါ',
+    'TRANSACTION HISTORY': 'ငွေလွှဲမှတ်တမ်း', 'COMMUNITY GROUP CHAT': 'အသိုင်းအဝိုင်းဂရုချတ်',
+    'VIDEO ADS': 'ဗီဒီယိုကြော်ငြာများ', 'Admin Upload': 'Admin တင်ရန်', 'Upload Video Ad': 'ဗီဒီယိုကြော်ငြာတင်ရန်',
+    'Customer Support Chat': 'ဖောက်သည်အကူအညီချတ်', 'Send': 'ပို့ရန်', 'Copy': 'ကူးယူရန်',
+    'Group Members': 'ဂရုအဖွဲ့ဝင်များ', 'Invite a user': 'User ဖိတ်ခေါ်ရန်', 'Search by name or user ID': 'အမည် သို့မဟုတ် user ID ဖြင့်ရှာရန်', 'Invite': 'ဖိတ်ခေါ်ရန်',
+    'Main Balance': 'အဓိကလက်ကျန်', 'Team Commission': 'အဖွဲ့ကော်မရှင်', 'Team Members': 'အဖွဲ့ဝင်များ',
+  },
+  th: {
+    'Web3 Finance': 'การเงิน Web3', 'Light': 'สว่าง', 'Dark': 'มืด', 'Withdraw': 'ถอนเงิน',
+    'Secure Web3 Platform': 'แพลตฟอร์ม Web3 ที่ปลอดภัย', 'Explore VIP Plans': 'ดูแผน VIP', 'Invite & Earn': 'เชิญและรับรายได้',
+    'Total Assets': 'สินทรัพย์รวม', 'Deposit': 'ฝากเงิน', 'Market Trends (Live 50+ Assets)': 'แนวโน้มตลาด (สินทรัพย์สดกว่า 50 รายการ)',
+    'Search coin name or symbol...': 'ค้นหาชื่อเหรียญหรือสัญลักษณ์...', 'Asset': 'สินทรัพย์', 'Live Price (USDT)': 'ราคาสด (USDT)', '24h Trend Chart': 'กราฟ 24 ชั่วโมง', '24h Change': 'เปลี่ยนแปลง 24 ชม.', 'Action': 'การดำเนินการ', 'Trade': 'เทรด',
+    'CRYPTO TRADE': 'เทรดคริปโต', 'Demo trading mode': 'โหมดทดลองเทรด', 'Place Order': 'ส่งคำสั่ง', 'Buy': 'ซื้อ', 'Sell': 'ขาย', 'Amount (USDT)': 'จำนวน (USDT)', 'Enter amount': 'กรอกจำนวน',
+    'VIP INVESTMENT TIERS (VIP 1 - VIP 10)': 'ระดับการลงทุน VIP (VIP 1 - VIP 10)', 'USDT WITHDRAWAL': 'ถอน USDT', 'Submit Withdrawal': 'ส่งคำขอถอนเงิน',
+    'TRANSACTION HISTORY': 'ประวัติธุรกรรม', 'COMMUNITY GROUP CHAT': 'แชทกลุ่มชุมชน', 'VIDEO ADS': 'โฆษณาวิดีโอ', 'Admin Upload': 'อัปโหลดสำหรับแอดมิน', 'Upload Video Ad': 'อัปโหลดโฆษณาวิดีโอ',
+    'Customer Support Chat': 'แชทฝ่ายสนับสนุน', 'Send': 'ส่ง', 'Copy': 'คัดลอก', 'Group Members': 'สมาชิกกลุ่ม', 'Invite a user': 'เชิญผู้ใช้', 'Search by name or user ID': 'ค้นหาด้วยชื่อหรือ user ID', 'Invite': 'เชิญ',
+    'Main Balance': 'ยอดคงเหลือหลัก', 'Team Commission': 'ค่าคอมมิชชันทีม', 'Team Members': 'สมาชิกทีม',
+  },
+};
+
+uiTranslations.my = {
+  ...uiTranslations.my,
+  'Trade & Earn Daily Fixed Income with ALEXCE': 'အရောင်းအဝယ်လုပ်ပြီး ALEXCE နှင့် နေ့စဉ်အမြတ်ရယူပါ',
+  'Unlock high-yield VIP tiers ranging from VIP 1 to VIP 10 with guaranteed daily interest.': 'VIP ၁ မှ VIP ၁၀ အထိ နေ့စဉ်အတိုးဖြင့် အမြတ်မြင့်အစီအစဉ်များကို အသုံးပြုပါ။',
+  'Explore VIP Plans': 'VIP အစီအစဉ်များကြည့်ရန်', 'Market Trends': 'စျေးကွက်လမ်းကြောင်း', 'Search': 'ရှာရန်',
+  'Live Platform Withdrawals': 'လက်ရှိပလက်ဖောင်း ငွေထုတ်မှုများ', 'Real-time Feed': 'အချိန်နှင့်တပြေးညီဖိဒ်',
+  'Referral Link': 'ရည်ညွှန်းလင့်ခ်', 'View Team Members': 'အဖွဲ့ဝင်များကြည့်ရန်', 'Account Settings & Security': 'အကောင့်ဆက်တင်နှင့် လုံခြုံရေး',
+  'Edit Profile & Security': 'ပရိုဖိုင်နှင့်လုံခြုံရေးပြင်ရန်', 'Log Out': 'ထွက်ရန်', 'Save Changes': 'ပြောင်းလဲမှုသိမ်းရန်',
+  'Only send BSC/BEP20 to this address': 'ဤလိပ်စာသို့ BSC/BEP20 သာပို့ပါ', 'I Have Made Payment (Auto-Deposit)': 'ငွေပေးချေပြီးပါပြီ (အလိုအလျောက်သွင်းရန်)',
+  'No assets found matching': 'ကိုက်ညီသောပိုင်ဆိုင်မှုမတွေ့ပါ', 'Wallet Address': 'ပိုက်ဆံအိတ်လိပ်စာ', 'Completed': 'ပြီးစီးပြီ',
+  'Options Market': 'Options စျေးကွက်', 'Alpha Signals': 'Alpha အချက်ပြများ', 'Convert Assets': 'ပိုင်ဆိုင်မှု ပြောင်းရန်',
+};
+
+uiTranslations.th = {
+  ...uiTranslations.th,
+  'Trade & Earn Daily Fixed Income with ALEXCE': 'เทรดและรับรายได้ประจำวันกับ ALEXCE',
+  'Unlock high-yield VIP tiers ranging from VIP 1 to VIP 10 with guaranteed daily interest.': 'ปลดล็อกระดับ VIP 1 ถึง VIP 10 พร้อมผลตอบแทนรายวันที่กำหนดไว้',
+  'Explore VIP Plans': 'ดูแผน VIP', 'Market Trends': 'แนวโน้มตลาด', 'Search': 'ค้นหา',
+  'Live Platform Withdrawals': 'การถอนเงินบนแพลตฟอร์มแบบสด', 'Real-time Feed': 'ฟีดเรียลไทม์',
+  'Referral Link': 'ลิงก์แนะนำ', 'View Team Members': 'ดูสมาชิกทีม', 'Account Settings & Security': 'การตั้งค่าบัญชีและความปลอดภัย',
+  'Edit Profile & Security': 'แก้ไขโปรไฟล์และความปลอดภัย', 'Log Out': 'ออกจากระบบ', 'Save Changes': 'บันทึกการเปลี่ยนแปลง',
+  'Only send BSC/BEP20 to this address': 'ส่ง BSC/BEP20 ไปยังที่อยู่นี้เท่านั้น', 'I Have Made Payment (Auto-Deposit)': 'ชำระเงินแล้ว (ฝากอัตโนมัติ)',
+  'No assets found matching': 'ไม่พบสินทรัพย์ที่ตรงกัน', 'Wallet Address': 'ที่อยู่กระเป๋าเงิน', 'Completed': 'เสร็จสมบูรณ์',
+  'Options Market': 'ตลาดออปชัน', 'Alpha Signals': 'สัญญาณ Alpha', 'Convert Assets': 'แปลงสินทรัพย์',
+};
+
+function TradingViewChart({ symbol, interval, darkMode }) {
+  const chartContainerRef = useRef(null);
+
+  useEffect(() => {
+    const chartContainer = chartContainerRef.current;
+    if (!chartContainer) return undefined;
+
+    chartContainer.innerHTML = '';
+    const chartWidget = document.createElement('div');
+    chartWidget.className = 'tradingview-widget-container__widget';
+    chartWidget.style.height = '100%';
+    chartWidget.style.width = '100%';
+    chartContainer.appendChild(chartWidget);
+
+    const widgetScript = document.createElement('script');
+    widgetScript.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+    widgetScript.type = 'text/javascript';
+    widgetScript.async = true;
+    widgetScript.innerHTML = JSON.stringify({
+      autosize: true,
+      symbol,
+      interval,
+      timezone: 'Asia/Yangon',
+      theme: darkMode ? 'dark' : 'light',
+      style: '1',
+      locale: 'en',
+      enable_publishing: false,
+      allow_symbol_change: false,
+      calendar: false,
+      support_host: 'https://www.tradingview.com',
+    });
+    chartContainer.appendChild(widgetScript);
+
+    return () => {
+      chartContainer.innerHTML = '';
+    };
+  }, [symbol, interval, darkMode]);
+
+  return <div ref={chartContainerRef} className="tradingview-widget-container h-full w-full" />;
+}
+
+function AlignedCryptoChart({ symbol, interval, darkMode, currentPrice, entryPrice, side }) {
+  const [candles, setCandles] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadCandles = async () => {
+      try {
+        const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}USDT&interval=${interval}&limit=80`);
+        if (!response.ok) throw new Error('Kline unavailable');
+        const rows = await response.json();
+        if (!cancelled) setCandles(rows.map((row) => ({ open: Number(row[1]), high: Number(row[2]), low: Number(row[3]), close: Number(row[4]) })));
+      } catch {
+        if (!cancelled) setCandles([]);
+      }
+    };
+    loadCandles();
+    const refresh = setInterval(loadCandles, 5000);
+    return () => { cancelled = true; clearInterval(refresh); };
+  }, [symbol, interval]);
+
+  const fallbackCandles = Array.from({ length: 48 }, (_, index) => {
+    const center = currentPrice || 1;
+    const open = center * (1 + Math.sin(index * 0.7) * 0.004);
+    const close = center * (1 + Math.sin((index + 1) * 0.7) * 0.004);
+    return { open, close, high: Math.max(open, close) * 1.002, low: Math.min(open, close) * 0.998 };
+  });
+  const chartCandles = candles.length ? candles : fallbackCandles;
+  const values = chartCandles.flatMap((candle) => [candle.high, candle.low]).concat([currentPrice || 0, entryPrice || 0]);
+  const minimum = Math.min(...values);
+  const maximum = Math.max(...values);
+  const padding = Math.max((maximum - minimum) * 0.08, (currentPrice || 1) * 0.001);
+  const chartMin = minimum - padding;
+  const chartMax = maximum + padding;
+  const y = (price) => 12 + ((chartMax - price) / Math.max(chartMax - chartMin, 0.000001)) * 210;
+  const xStep = 760 / Math.max(chartCandles.length - 1, 1);
+
+  return <div className="relative h-full w-full">
+    <svg viewBox="0 0 800 250" preserveAspectRatio="none" className="h-full w-full">
+      {[0, 1, 2, 3, 4].map((line) => <line key={line} x1="0" x2="800" y1={12 + line * 52} y2={12 + line * 52} stroke={darkMode ? '#1e293b' : '#e2e8f0'} strokeWidth="1" />)}
+      {chartCandles.map((candle, index) => {
+        const x = 20 + index * xStep;
+        const bullish = candle.close >= candle.open;
+        const color = bullish ? '#10b981' : '#f43f5e';
+        const bodyTop = y(Math.max(candle.open, candle.close));
+        const bodyHeight = Math.max(2, Math.abs(y(candle.open) - y(candle.close)));
+        return <g key={`${symbol}-${index}`}><line x1={x} x2={x} y1={y(candle.high)} y2={y(candle.low)} stroke={color} strokeWidth="1.5" /><rect x={x - 3} y={bodyTop} width="6" height={bodyHeight} fill={color} /></g>;
+      })}
+      {currentPrice > 0 && <><line x1="0" x2="800" y1={y(currentPrice)} y2={y(currentPrice)} stroke="#38bdf8" strokeWidth="1.5" strokeDasharray="5 4" /><text x="8" y={Math.max(12, y(currentPrice) - 5)} fill="#38bdf8" fontSize="10">LIVE {currentPrice.toFixed(currentPrice < 1 ? 6 : 2)}</text></>}
+      {entryPrice > 0 && <><line x1="0" x2="800" y1={y(entryPrice)} y2={y(entryPrice)} stroke={side === 'short' || side === 'sell' ? '#fb7185' : '#fbbf24'} strokeWidth="2" strokeDasharray="8 5" /><text x="8" y={Math.min(240, y(entryPrice) + 13)} fill={side === 'short' || side === 'sell' ? '#fb7185' : '#fbbf24'} fontSize="10">ENTRY {entryPrice.toFixed(entryPrice < 1 ? 6 : 2)}</text></>}
+    </svg>
+    <span className="absolute bottom-2 right-3 text-[10px] opacity-50">Binance live candles · {interval}</span>
+  </div>;
+}
+
+function AlexceLogo() {
+  return (
+    <div className="w-11 h-11 rounded-2xl bg-slate-900 border border-cyan-400/30 flex items-center justify-center shadow-lg shadow-cyan-500/20" aria-label="ALEXCE logo">
+      <svg viewBox="0 0 44 44" className="w-9 h-9" aria-hidden="true">
+        <path d="M22 3.5 38.5 13v18L22 40.5 5.5 31V13L22 3.5Z" fill="#111827" stroke="#22d3ee" strokeWidth="1.5" />
+        <path d="m12.5 30 7.1-16h4.8l7.1 16h-4.4l-1.4-3.5h-7.7L16.6 30h-4.1Zm6.9-7h4.2l-2.1-5.4-2.1 5.4Z" fill="#f8fafc" />
+        <path d="M15.5 25h13" stroke="#a78bfa" strokeWidth="1.5" strokeLinecap="round" />
+        <circle cx="34.5" cy="9.5" r="2" fill="#a78bfa" />
+      </svg>
+    </div>
+  );
+}
+
+function CryptoLogo({ coin, size = 'w-10 h-10' }) {
+  const [logoSourceIndex, setLogoSourceIndex] = useState(0);
+  const slug = cryptoLogoSlugs[coin.symbol] || coin.symbol.toLowerCase();
+  const logoSources = [
+    `https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/${slug}.png`,
+    `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${slug}.png`,
+    `https://assets.coincap.io/assets/icons/${coin.symbol.toLowerCase()}@2x.png`,
+  ];
+
+  return (
+    <div className={`${size} rounded-full ${coin.logoBg} flex items-center justify-center font-black text-white shadow-md text-sm shrink-0 overflow-hidden`}>
+      {logoSourceIndex < logoSources.length ? <img src={logoSources[logoSourceIndex]} alt={`${coin.name} logo`} className="w-full h-full object-cover" onError={() => setLogoSourceIndex((index) => index + 1)} /> : <span>{coin.logoText}</span>}
+    </div>
+  );
+}
+
+function MarketLogo({ coin }) {
+  const domain = referenceLogoDomains[coin.symbol];
+  const [logoAvailable, setLogoAvailable] = useState(Boolean(domain));
+
+  if (!domain && !nonCryptoMarketSymbols.has(coin.symbol)) {
+    return <CryptoLogo coin={coin} />;
+  }
+
+  if (!domain) {
+    return <div className={`w-10 h-10 rounded-full ${coin.logoBg} flex items-center justify-center font-black text-white shadow-md text-xs shrink-0`}>{coin.logoText}</div>;
+  }
+
+  return (
+    <div className={`w-10 h-10 rounded-full ${coin.logoBg} flex items-center justify-center font-black text-white shadow-md text-xs shrink-0 overflow-hidden`}>
+      {logoAvailable ? <img src={`https://logo.clearbit.com/${domain}`} alt={`${coin.name} logo`} className="w-full h-full object-contain bg-white p-1.5" onError={() => setLogoAvailable(false)} /> : coin.logoText}
+    </div>
+  );
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [selectedVip, setSelectedVip] = useState(null);
   const [copied, setCopied] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
+  const [language, setLanguage] = useState('en');
+  const [vipLaunchStarted, setVipLaunchStarted] = useState(false);
+  const [vipRestSeconds, setVipRestSeconds] = useState(300);
+  const [vipLastActionAt, setVipLastActionAt] = useState(() => {
+    const savedAction = window.localStorage.getItem('alexce-vip-last-action');
+    return savedAction ? Number(savedAction) : 0;
+  });
+  const [currentTime, setCurrentTime] = useState(Date.now());
   const walletAddress = '0x99A3e0038aC4BAB1c0ED8eAb354FD2171969d922';
 
   const [userBalance, setUserBalance] = useState(12450.0);
@@ -13,6 +274,7 @@ export default function App() {
   const [username, setUsername] = useState('ALEXCE');
   const [password, setPassword] = useState('123456');
   const [userPhone, setUserPhone] = useState('+959976543210');
+  const [profileImage, setProfileImage] = useState(() => window.localStorage.getItem('alexce-profile-image') || '');
 
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [tempUsername, setTempUsername] = useState('ALEXCE');
@@ -33,8 +295,144 @@ export default function App() {
     { sender: 'support', text: 'Hello! Welcome to ALEXCE Support. How can I help you with your VIP deposit, password change or withdrawal today?' },
   ]);
   const [inputMessage, setInputMessage] = useState('');
+  const [groupMessages, setGroupMessages] = useState([
+    { id: 1, user: 'ALEXCE Team', userId: 'alexce-team', text: 'Welcome to the ALEXCE community room. Please keep the chat respectful.', time: '09:20', isCurrentUser: false },
+    { id: 2, user: 'Crypto Trader', userId: 'crypto_7788', text: 'Has anyone tried the VIP 2 plan yet?', time: '09:24', isCurrentUser: false },
+  ]);
+  const [groupMessage, setGroupMessage] = useState('');
+  const [groupAttachment, setGroupAttachment] = useState(null);
+  const [groupMemberSearch, setGroupMemberSearch] = useState('');
+  const [groupMembers, setGroupMembers] = useState([
+    { id: 1, name: 'ALEXCE', userId: 'alexce_8921' },
+    { id: 2, name: 'Crypto Trader', userId: 'crypto_7788' },
+    { id: 3, name: 'May Zin', userId: 'mayzin_2045' },
+    { id: 4, name: 'Ko Min', userId: 'komin_6612' },
+  ]);
+  const [groupUserDirectory] = useState([
+    { id: 5, name: 'Thura Win', userId: 'thura_4410' },
+    { id: 6, name: 'Su Su', userId: 'susu_9920' },
+    { id: 7, name: 'Nilar Htet', userId: 'nilar_3156' },
+    { id: 8, name: 'Bitcoin Lover', userId: 'btc_love88' },
+  ]);
   const [refSubTab, setRefSubTab] = useState('deposit');
   const [marketSearch, setMarketSearch] = useState('');
+  const [marketCategory, setMarketCategory] = useState('new');
+  const [marketExchange, setMarketExchange] = useState('binance');
+  const [p2pCurrency, setP2pCurrency] = useState('THB');
+  const [p2pSide, setP2pSide] = useState('buy');
+  const [p2pAmount, setP2pAmount] = useState('');
+  const [p2pRates, setP2pRates] = useState({ USD: 1, THB: 32.5, MMK: 4450 });
+  const [p2pRateUpdatedAt, setP2pRateUpdatedAt] = useState(Date.now());
+  const [p2pUsdHistory, setP2pUsdHistory] = useState([1, 1.0002, 0.9998, 1.0001, 1]);
+  const [p2pApiStatus, setP2pApiStatus] = useState('connecting');
+  const [p2pNotice, setP2pNotice] = useState('');
+  const [p2pIsAdmin, setP2pIsAdmin] = useState(false);
+  const [p2pOrders, setP2pOrders] = useState([]);
+  const [selectedTradeSymbol, setSelectedTradeSymbol] = useState('BTC');
+  const [selectedTimeframe, setSelectedTimeframe] = useState('1m');
+  const [tradeMode, setTradeMode] = useState('Spot');
+  const [chartExpanded, setChartExpanded] = useState(false);
+  const [tradeOrders, setTradeOrders] = useState([]);
+  const [futuresSide, setFuturesSide] = useState('long');
+  const [futuresLeverage, setFuturesLeverage] = useState('10');
+  const [futuresPositions, setFuturesPositions] = useState([]);
+  const [tradFiSide, setTradFiSide] = useState('buy');
+  const [tradFiPositions, setTradFiPositions] = useState([]);
+  const [marketApiStatus, setMarketApiStatus] = useState('connecting');
+  const [marketPriceUpdatedAt, setMarketPriceUpdatedAt] = useState(Date.now());
+  const [videoAds, setVideoAds] = useState([
+    { id: 1, title: 'Welcome to ALEXCE', description: 'Learn about our latest VIP opportunities.', url: '', isDemo: true },
+  ]);
+  const [videoAdTitle, setVideoAdTitle] = useState('');
+  const [videoAdDescription, setVideoAdDescription] = useState('');
+  const [videoAdFile, setVideoAdFile] = useState(null);
+  const labels = languageLabels[language];
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadP2pRates = async () => {
+      try {
+        const response = await fetch('https://open.er-api.com/v6/latest/USD');
+        if (!response.ok) throw new Error('FX API unavailable');
+        const data = await response.json();
+        if (isMounted && data.rates) {
+          setP2pRates({ USD: 1, THB: Number(data.rates.THB), MMK: Number(data.rates.MMK) });
+          setP2pRateUpdatedAt(Date.now());
+          setP2pUsdHistory((previous) => [...previous.slice(-11), Number(data.rates.USD || 1)]);
+          setP2pApiStatus('live');
+        }
+      } catch {
+        if (isMounted) setP2pApiStatus('offline');
+      }
+    };
+    loadP2pRates();
+    const rateInterval = setInterval(loadP2pRates, 60000);
+    return () => { isMounted = false; clearInterval(rateInterval); };
+  }, []);
+
+  useEffect(() => {
+    if (vipLaunchStarted || vipRestSeconds <= 0) return undefined;
+    const countdown = setInterval(() => {
+      setVipRestSeconds((seconds) => Math.max(0, seconds - 1));
+    }, 1000);
+    return () => clearInterval(countdown);
+  }, [vipLaunchStarted, vipRestSeconds]);
+
+  useEffect(() => {
+    const clock = setInterval(() => setCurrentTime(Date.now()), 1000);
+    return () => clearInterval(clock);
+  }, []);
+
+  const vipMinutes = String(Math.floor(vipRestSeconds / 60)).padStart(2, '0');
+  const vipSeconds = String(vipRestSeconds % 60).padStart(2, '0');
+  const vipCooldownMs = 24 * 60 * 60 * 1000;
+  const vipCooldownRemaining = Math.max(0, vipCooldownMs - (currentTime - vipLastActionAt));
+  const vipCooldownActive = vipLastActionAt > 0 && vipCooldownRemaining > 0;
+  const cooldownHours = String(Math.floor(vipCooldownRemaining / (60 * 60 * 1000))).padStart(2, '0');
+  const cooldownMinutes = String(Math.floor((vipCooldownRemaining % (60 * 60 * 1000)) / (60 * 1000))).padStart(2, '0');
+  const cooldownSeconds = String(Math.floor((vipCooldownRemaining % (60 * 1000)) / 1000)).padStart(2, '0');
+  const thailandFormatter = new Intl.DateTimeFormat('th-TH-u-ca-gregory', { timeZone: 'Asia/Bangkok', dateStyle: 'medium', timeStyle: 'medium' });
+  const thailandTime = thailandFormatter.format(currentTime);
+  const lastVipActionTime = vipLastActionAt ? thailandFormatter.format(vipLastActionAt) : null;
+  const nextVipActionTime = vipLastActionAt ? thailandFormatter.format(vipLastActionAt + vipCooldownMs) : null;
+
+  const handleVipDailyAction = () => {
+    if (vipCooldownActive) return;
+    const actionTime = Date.now();
+    setVipLastActionAt(actionTime);
+    window.localStorage.setItem('alexce-vip-last-action', String(actionTime));
+    setVipLaunchStarted(true);
+    setVipRestSeconds(0);
+  };
+  const originalTextNodes = useRef(new WeakMap());
+
+  useEffect(() => {
+    const translations = uiTranslations[language] || {};
+    const textWalker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let textNode = textWalker.nextNode();
+
+    while (textNode) {
+      if (textNode.parentElement && !['SCRIPT', 'STYLE'].includes(textNode.parentElement.tagName)) {
+        if (!originalTextNodes.current.has(textNode)) originalTextNodes.current.set(textNode, textNode.nodeValue);
+        const originalText = originalTextNodes.current.get(textNode);
+        let translatedText = originalText;
+        Object.entries(translations).forEach(([english, translated]) => {
+          translatedText = translatedText.split(english).join(translated);
+        });
+        textNode.nodeValue = translatedText;
+      }
+      textNode = textWalker.nextNode();
+    }
+
+    document.querySelectorAll('input[placeholder], textarea[placeholder]').forEach((element) => {
+      if (!element.dataset.originalPlaceholder) element.dataset.originalPlaceholder = element.getAttribute('placeholder');
+      const originalPlaceholder = element.dataset.originalPlaceholder;
+      element.setAttribute('placeholder', translations[originalPlaceholder] || originalPlaceholder);
+    });
+  }, [language, activeTab]);
+  const [tradeSide, setTradeSide] = useState('buy');
+  const [tradeAmount, setTradeAmount] = useState('');
+  const [tradeNotice, setTradeNotice] = useState('');
 
   const [marketData, setMarketData] = useState([
     { name: 'Bitcoin', symbol: 'BTC', price: 64230.0, change: '+2.5%', isUp: true, logoBg: 'bg-amber-500', logoText: '₿', sparklineColor: '#10b981', points: '10,25 25,18 40,30 55,15 70,20 85,8 100,12' },
@@ -98,6 +496,207 @@ export default function App() {
     return coin.name.toLowerCase().includes(search) || coin.symbol.toLowerCase().includes(search);
   });
 
+  const referenceMarkets = {
+    stocks: [
+      { name: 'Apple', symbol: 'AAPL', price: 229.50, change: '+1.2%', isUp: true, logoBg: 'bg-slate-700', logoText: 'A' },
+      { name: 'Microsoft', symbol: 'MSFT', price: 415.20, change: '+0.8%', isUp: true, logoBg: 'bg-blue-700', logoText: 'M' },
+      { name: 'NVIDIA', symbol: 'NVDA', price: 143.80, change: '+2.4%', isUp: true, logoBg: 'bg-emerald-700', logoText: 'N' },
+      { name: 'Tesla', symbol: 'TSLA', price: 318.40, change: '-0.6%', isUp: false, logoBg: 'bg-red-700', logoText: 'T' },
+    ],
+    metals: [
+      { name: 'Gold', symbol: 'XAUUSD', price: 3645.20, change: '+0.4%', isUp: true, logoBg: 'bg-amber-700', logoText: 'Au' },
+      { name: 'Silver', symbol: 'XAGUSD', price: 41.20, change: '+0.7%', isUp: true, logoBg: 'bg-slate-500', logoText: 'Ag' },
+      { name: 'Platinum', symbol: 'XPTUSD', price: 1390.00, change: '-0.2%', isUp: false, logoBg: 'bg-indigo-700', logoText: 'Pt' },
+      { name: 'Palladium', symbol: 'XPDUSD', price: 1125.00, change: '+0.3%', isUp: true, logoBg: 'bg-purple-700', logoText: 'Pd' },
+    ],
+    indices: [
+      { name: 'S&P 500', symbol: 'SPX', price: 6480.30, change: '+0.3%', isUp: true, logoBg: 'bg-blue-800', logoText: 'S' },
+      { name: 'NASDAQ 100', symbol: 'NDX', price: 23890.10, change: '+0.6%', isUp: true, logoBg: 'bg-cyan-800', logoText: 'N' },
+      { name: 'Dow Jones', symbol: 'DJI', price: 45520.40, change: '-0.1%', isUp: false, logoBg: 'bg-slate-700', logoText: 'D' },
+    ],
+    forex: [
+      { name: 'Euro / US Dollar', symbol: 'EURUSD', price: 1.17, change: '+0.1%', isUp: true, logoBg: 'bg-blue-700', logoText: '€' },
+      { name: 'British Pound / US Dollar', symbol: 'GBPUSD', price: 1.35, change: '-0.2%', isUp: false, logoBg: 'bg-red-700', logoText: '£' },
+      { name: 'US Dollar / Japanese Yen', symbol: 'USDJPY', price: 147.20, change: '+0.2%', isUp: true, logoBg: 'bg-rose-700', logoText: '¥' },
+    ],
+    commodities: [
+      { name: 'Crude Oil', symbol: 'WTI', price: 64.80, change: '+1.1%', isUp: true, logoBg: 'bg-orange-800', logoText: 'O' },
+      { name: 'Brent Oil', symbol: 'BRENT', price: 68.10, change: '+0.9%', isUp: true, logoBg: 'bg-slate-800', logoText: 'B' },
+      { name: 'Natural Gas', symbol: 'NATGAS', price: 3.02, change: '-0.4%', isUp: false, logoBg: 'bg-cyan-700', logoText: 'G' },
+    ],
+  };
+  const marketSearchResults = marketData.filter((coin) => {
+    const search = marketSearch.trim().toLowerCase();
+    return !search || coin.name.toLowerCase().includes(search) || coin.symbol.toLowerCase().includes(search);
+  });
+  const marketPageData = marketCategory === 'new'
+    ? marketSearchResults.slice(-24).reverse()
+    : marketCategory === 'all'
+      ? marketSearchResults
+      : marketCategory === 'gainers'
+      ? [...marketSearchResults].sort((a, b) => Number.parseFloat(b.change) - Number.parseFloat(a.change)).slice(0, 24)
+      : referenceMarkets[marketCategory] || marketSearchResults;
+  const tradFiMarkets = [...referenceMarkets.forex, ...referenceMarkets.metals, ...referenceMarkets.indices, ...referenceMarkets.stocks, ...referenceMarkets.commodities];
+
+  const referenceTradeCoin = Object.values(referenceMarkets).flat().find((coin) => coin.symbol === selectedTradeSymbol);
+  const selectedTradeCoin = marketData.find((coin) => coin.symbol === selectedTradeSymbol) || referenceTradeCoin || marketData[0];
+  const getMarketCoin = (symbol) => marketData.find((coin) => coin.symbol === symbol) || Object.values(referenceMarkets).flat().find((coin) => coin.symbol === symbol) || null;
+  const getLivePrice = (symbol) => getMarketCoin(symbol)?.price || 0;
+  const activeTradFiPosition = tradFiPositions.find((position) => position.symbol === selectedTradeSymbol);
+  const activeFuturesPosition = futuresPositions.find((position) => position.symbol === selectedTradeSymbol);
+  const activeSpotOrder = tradeOrders.find((order) => order.symbol === selectedTradeSymbol);
+
+  const handleTrade = (e) => {
+    e.preventDefault();
+    const amount = Number(tradeAmount);
+    if (tradeMode === 'TradFi') {
+      if (!amount || amount <= 0) {
+        setTradeNotice('Enter a trade size, for example 0.01.');
+        return;
+      }
+      setTradFiPositions((previous) => [{
+        id: Date.now(), symbol: selectedTradeCoin.symbol, side: tradFiSide,
+        size: amount, entryPrice: selectedTradeCoin.price,
+        openedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      }, ...previous]);
+      setTradeNotice(`${tradFiSide === 'buy' ? 'Buy' : 'Sell'} ${amount} ${selectedTradeCoin.symbol} position opened.`);
+      setTradeAmount('');
+      return;
+    }
+    if (tradeMode === 'Futures') {
+      if (!amount || amount <= 0) {
+        setTradeNotice('Enter margin amount first.');
+        return;
+      }
+      if (amount > userBalance) {
+        setTradeNotice('Insufficient demo balance for this margin.');
+        return;
+      }
+      const leverage = Number(futuresLeverage);
+      const quantity = (amount * leverage) / selectedTradeCoin.price;
+      setUserBalance((previous) => Number((previous - amount).toFixed(2)));
+      setFuturesPositions((previous) => [{
+        id: Date.now(), symbol: selectedTradeCoin.symbol, side: futuresSide, leverage, margin: amount,
+        entryPrice: selectedTradeCoin.price, quantity, openedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      }, ...previous]);
+      setTradeNotice(`${futuresSide === 'long' ? 'Long' : 'Short'} ${selectedTradeCoin.symbol} opened at ${leverage}x leverage.`);
+      setTradeAmount('');
+      return;
+    }
+    if (tradeMode === 'Options' || tradeMode === 'Alpha' || tradeMode === 'Convert') {
+      setTradeNotice(`${tradeMode} is connected to the market interface. Choose Spot or Futures to place a demo order.`);
+      return;
+    }
+    if (!amount || amount <= 0) {
+      setTradeNotice('Enter a valid USDT amount first.');
+      return;
+    }
+
+    if (tradeSide === 'buy' && amount > userBalance) {
+      setTradeNotice('Insufficient demo balance for this buy order.');
+      return;
+    }
+
+    setUserBalance((previous) => Number((previous + (tradeSide === 'buy' ? -amount : amount)).toFixed(2)));
+    setTradeNotice(`${tradeSide === 'buy' ? 'Bought' : 'Sold'} ${selectedTradeCoin.symbol} for $${amount.toFixed(2)} USDT (demo order).`);
+    setTradeOrders((previous) => [{
+      id: Date.now(),
+      side: tradeSide,
+      symbol: selectedTradeCoin.symbol,
+      amount,
+      quantity: amount / selectedTradeCoin.price,
+      price: selectedTradeCoin.price,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    }, ...previous]);
+    setTradeAmount('');
+  };
+
+  const closeFuturesPosition = (position) => {
+    const currentPrice = getLivePrice(position.symbol) || position.entryPrice;
+    const priceDifference = currentPrice - position.entryPrice;
+    const pnl = (position.side === 'long' ? priceDifference : -priceDifference) * position.quantity;
+    const returnedMargin = Math.max(0, position.margin + pnl);
+    setUserBalance((previous) => Number((previous + returnedMargin).toFixed(2)));
+    setFuturesPositions((previous) => previous.filter((item) => item.id !== position.id));
+    setTradeNotice(`${position.symbol} position closed. ${pnl >= 0 ? 'Profit' : 'Loss'}: $${Math.abs(pnl).toFixed(2)} USDT.`);
+  };
+
+  const closeTradFiPosition = (position) => {
+    const currentPrice = getLivePrice(position.symbol) || position.entryPrice;
+    const pnl = (position.side === 'buy' ? currentPrice - position.entryPrice : position.entryPrice - currentPrice) * position.size;
+    setTradFiPositions((previous) => previous.filter((item) => item.id !== position.id));
+    setTradeNotice(`${position.symbol} position stopped. ${pnl >= 0 ? 'Profit' : 'Loss'}: $${Math.abs(pnl).toFixed(4)}.`);
+  };
+
+  const handleP2pOrder = (e) => {
+    e.preventDefault();
+    if (!Number(p2pAmount) || Number(p2pAmount) <= 0) {
+      setP2pNotice('Enter a valid amount.');
+      return;
+    }
+    const rate = p2pRates[p2pCurrency];
+    const quoted = Number(p2pAmount) * rate * (p2pSide === 'buy' ? 1.005 : 0.995);
+    setP2pOrders((previous) => [{
+      id: Date.now(),
+      type: p2pSide,
+      currency: p2pCurrency,
+      amount: Number(p2pAmount),
+      quoted,
+      status: 'Pending admin review',
+      createdAt: Date.now(),
+    }, ...previous]);
+    setP2pNotice(`${p2pSide === 'buy' ? 'Buy' : 'Sell'} USDT offer created: ${quoted.toFixed(2)} ${p2pCurrency}.`);
+    setP2pAmount('');
+  };
+
+  const updateP2pOrder = (orderId, status) => {
+    setP2pOrders((previous) => previous.map((order) => order.id === orderId ? { ...order, status } : order));
+  };
+
+  const p2pCurrencyInfo = {
+    THB: { name: 'Thai Baht', flag: '🇹🇭', logo: '฿' },
+    USD: { name: 'US Dollar', flag: '🇺🇸', logo: '$' },
+    MMK: { name: 'Myanmar Kyat', flag: '🇲🇲', logo: 'K' },
+  };
+
+  const handleVideoAdUpload = (e) => {
+    e.preventDefault();
+    if (!videoAdFile || !videoAdTitle.trim()) return;
+
+    setVideoAds((previous) => [
+      {
+        id: Date.now(),
+        title: videoAdTitle.trim(),
+        description: videoAdDescription.trim(),
+        url: URL.createObjectURL(videoAdFile),
+        isDemo: false,
+      },
+      ...previous,
+    ]);
+    setVideoAdTitle('');
+    setVideoAdDescription('');
+    setVideoAdFile(null);
+    e.target.reset();
+  };
+
+  const handleProfileImageUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Please choose an image smaller than 2MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const imageData = String(reader.result);
+      setProfileImage(imageData);
+      window.localStorage.setItem('alexce-profile-image', imageData);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   const liveWithdrawals = [
     { user: '0x8921***4312', amount: '$450.00', time: 'Just now' },
     { user: '0x3412***8890', amount: '$1,200.00', time: '1 min ago' },
@@ -105,22 +704,54 @@ export default function App() {
   ];
 
   useEffect(() => {
-    const liveInterval = setInterval(() => {
-      setMarketData((prevData) =>
-        prevData.map((coin) => {
-          const fluctuation = (Math.random() - 0.48) * (coin.price * 0.003);
-          const newPrice = Math.max(0.000001, coin.price + fluctuation);
-          const isUp = fluctuation >= 0;
-          const randomChangeVal = (Math.random() * 5).toFixed(2);
-          const newChange = `${isUp ? '+' : '-'}${randomChangeVal}%`;
+    let isMounted = true;
 
-          return { ...coin, price: newPrice, change: newChange, isUp };
-        }),
-      );
-    }, 2000);
+    const loadMarketPrices = async () => {
+      try {
+        const endpoint = marketExchange === 'bybit'
+          ? 'https://api.bybit.com/v5/market/tickers?category=spot'
+          : 'https://api.binance.com/api/v3/ticker/24hr';
+        const response = await fetch(endpoint);
+        if (!response.ok) throw new Error('Market API unavailable');
+        const payload = await response.json();
+        const tickers = marketExchange === 'bybit'
+          ? (payload.result?.list || []).map((ticker) => ({ symbol: ticker.symbol, lastPrice: ticker.lastPrice, priceChangePercent: ticker.price24hPcnt * 100 }))
+          : payload;
+        if (isMounted) {
+          setMarketData((previousData) => {
+            const knownCoins = new Map(previousData.map((coin) => [coin.symbol, coin]));
+            const liveCoins = tickers
+              .filter((ticker) => ticker.symbol.endsWith('USDT') && Number(ticker.lastPrice) > 0)
+              .filter((ticker) => !/(UPUSDT|DOWNUSDT|BULLUSDT|BEARUSDT)$/.test(ticker.symbol))
+              .map((ticker) => {
+                const symbol = ticker.symbol.replace(/USDT$/, '');
+                const knownCoin = knownCoins.get(symbol);
+                const price = Number(ticker.lastPrice);
+                const changeValue = Number(ticker.priceChangePercent);
+                return {
+                  ...(knownCoin || { name: symbol, symbol, logoBg: 'bg-slate-700', logoText: symbol.slice(0, 4), sparklineColor: '#64748b', points: '10,20 30,18 50,22 70,16 90,20' }),
+                  price,
+                  change: `${changeValue >= 0 ? '+' : ''}${changeValue.toFixed(2)}%`,
+                  isUp: changeValue >= 0,
+                };
+              });
+            return liveCoins.length > 0 ? liveCoins : previousData;
+          });
+          setMarketPriceUpdatedAt(Date.now());
+          setMarketApiStatus(marketExchange === 'bybit' ? 'bybit-live' : 'live');
+        }
+      } catch {
+        if (isMounted) setMarketApiStatus('offline');
+      }
+    };
 
-    return () => clearInterval(liveInterval);
-  }, []);
+    loadMarketPrices();
+    const liveInterval = setInterval(loadMarketPrices, 5000);
+    return () => {
+      isMounted = false;
+      clearInterval(liveInterval);
+    };
+  }, [marketExchange]);
 
   const isDragging = useRef(false);
   const dragOffset = useRef({ x: 0, y: 0 });
@@ -199,6 +830,7 @@ export default function App() {
     { level: 'VIP 9', price: 900, cycle: '365Day', dailyProfit: '$45', totalProfit: '$16425', gradient: 'from-amber-500 via-rose-600 to-purple-700', glow: 'shadow-amber-500/20' },
     { level: 'VIP 10', price: 1000, cycle: '365Day', dailyProfit: '$50', totalProfit: '$18250', gradient: 'from-yellow-400 via-amber-500 to-red-600', glow: 'shadow-yellow-500/30' },
   ];
+  const vipCardColors = ['#26364d', '#3b2f5c', '#214a4b', '#2c523b', '#5a4b27', '#5a3826', '#5a2935', '#5a2d4d', '#3d315b', '#1e4a5a'];
 
   const handleCopy = (text) => {
     navigator.clipboard.writeText(text);
@@ -216,6 +848,64 @@ export default function App() {
     setTimeout(() => {
       setChatMessages((prev) => [...prev, { sender: 'support', text: `Thanks for reaching out regarding "${msg}". Our support team is reviewing your request.` }]);
     }, 1000);
+  };
+
+  const handleSendGroupMessage = (e) => {
+    e.preventDefault();
+    const message = groupMessage.trim();
+    if (!message && !groupAttachment) return;
+
+    setGroupMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now(),
+        user: username,
+        userId: `user_${userPhone.replace(/\D/g, '').slice(-6)}`,
+        text: message,
+        mediaUrl: groupAttachment?.url,
+        mediaType: groupAttachment?.type,
+        mediaName: groupAttachment?.name,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isCurrentUser: true,
+      },
+    ]);
+    setGroupMessage('');
+    setGroupAttachment(null);
+  };
+
+  const handleGroupAttachment = (e) => {
+    const file = e.target.files?.[0];
+    if (!file || (!file.type.startsWith('image/') && !file.type.startsWith('video/'))) return;
+
+    setGroupAttachment({
+      name: file.name,
+      type: file.type.startsWith('video/') ? 'video' : 'image',
+      url: URL.createObjectURL(file),
+    });
+    e.target.value = '';
+  };
+
+  const inviteableMembers = groupUserDirectory.filter((member) => {
+    const query = groupMemberSearch.trim().toLowerCase();
+    if (!query) return false;
+    return member.name.toLowerCase().includes(query) || member.userId.toLowerCase().includes(query);
+  });
+
+  const handleInviteToGroup = (member) => {
+    setGroupMembers((prev) => [...prev, member]);
+    setGroupMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now(),
+        user: 'ALEXCE Team',
+        userId: 'alexce-team',
+        text: `${username} invited ${member.name} (@${member.userId}) to the group.`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isCurrentUser: false,
+        isSystem: true,
+      },
+    ]);
+    setGroupMemberSearch('');
   };
 
   const handleSimulateNewReferralPurchase = (levelType, vipPlanObj) => {
@@ -245,48 +935,56 @@ export default function App() {
     <div className={`${darkMode ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-900'} min-h-screen`}>
       <header className={`${darkMode ? 'bg-slate-950/90 border-slate-800' : 'bg-white/90 border-slate-200'} sticky top-0 z-40 border-b backdrop-blur-xl`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4 gap-4">
+          <div className="site-header-inner flex items-center justify-between py-4 gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-purple-600 to-cyan-500 flex items-center justify-center font-black text-lg shadow-lg shadow-purple-500/30">
-                A
-              </div>
+              <AlexceLogo />
               <div>
                 <div className="text-xl font-black tracking-tight">ALEXCE</div>
                 <div className="text-[10px] uppercase tracking-[0.28em] opacity-60">Web3 Finance</div>
               </div>
             </div>
 
-            <nav className="hidden md:flex items-center gap-2 text-xs font-semibold">
-              {['home', 'vip', 'share', 'team', 'history', 'support', 'me'].map((tab) => (
+            <nav className="site-nav hidden md:flex items-center gap-2 text-xs font-semibold">
+              {['home', 'trade', 'p2p', 'market', 'vip', 'videoads', 'share', 'team', 'history', 'groupchat', 'support', 'me'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   className={`px-3 py-2 rounded-xl transition ${activeTab === tab ? 'bg-purple-600 text-white' : darkMode ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-200'}`}
                 >
-                  {tab.toUpperCase()}
+                  {tab === 'groupchat' ? labels.groupChat : tab === 'videoads' ? labels.videoAds : tab === 'market' ? 'MARKET' : tab === 'p2p' ? 'P2P' : labels[tab]}
                 </button>
               ))}
             </nav>
 
             <div className="flex items-center gap-3">
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                aria-label="Select language"
+                className={`${darkMode ? 'bg-slate-800 text-slate-100 border-slate-700' : 'bg-slate-200 text-slate-800 border-slate-300'} border px-2.5 py-2 rounded-xl text-xs font-bold focus:outline-none focus:border-cyan-500`}
+              >
+                <option value="en">English</option>
+                <option value="my">မြန်မာ</option>
+                <option value="th">ไทย</option>
+              </select>
               <button
                 onClick={() => setDarkMode((prev) => !prev)}
                 className={`px-3 py-2 rounded-xl text-xs font-bold ${darkMode ? 'bg-slate-800 text-slate-100' : 'bg-slate-200 text-slate-800'}`}
               >
-                {darkMode ? 'Light' : 'Dark'}
+                {darkMode ? labels.light : labels.dark}
               </button>
               <button
                 onClick={() => setActiveTab('withdraw')}
                 className="bg-rose-600 hover:bg-rose-500 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-lg transition"
               >
-                Withdraw
+                {labels.withdraw}
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="site-main max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'home' && (
           <div className="space-y-8">
             <div className={`bg-gradient-to-r ${darkMode ? 'from-purple-900/50 via-indigo-950 to-slate-900 border-slate-800' : 'from-purple-100 via-indigo-50 to-slate-100 border-slate-200'} border rounded-3xl p-8 md:p-12 shadow-2xl flex flex-col md:flex-row justify-between items-center gap-8`}>
@@ -294,7 +992,7 @@ export default function App() {
                 <span className="bg-purple-500/10 text-purple-400 text-xs px-3 py-1.5 rounded-full font-bold border border-purple-500/20">Secure Web3 Platform</span>
                 <h1 className="text-4xl md:text-5xl font-black tracking-tight">Trade & Earn Daily Fixed Income with ALEXCE</h1>
                 <p className="opacity-80 text-sm leading-relaxed">Unlock high-yield VIP tiers ranging from VIP 1 to VIP 10 with guaranteed daily interest.</p>
-                <div className="flex gap-4 pt-2">
+                <div className="mobile-action-row flex gap-4 pt-2">
                   <button onClick={() => setActiveTab('vip')} className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-6 py-3 rounded-xl shadow-lg transition">Explore VIP Plans</button>
                   <button onClick={() => setActiveTab('share')} className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-6 py-3 rounded-xl shadow-lg transition">Invite & Earn</button>
                 </div>
@@ -330,7 +1028,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className={`${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-2xl overflow-hidden shadow-xl max-h-[650px] overflow-y-auto`}>
+              <div className={`mobile-scroll-table market-table ${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-2xl overflow-hidden shadow-xl max-h-[650px] overflow-y-auto`}>
                 <table className="w-full text-left border-collapse">
                   <thead className="sticky top-0 z-10">
                     <tr className={`border-b ${darkMode ? 'border-slate-800 bg-[#12161f] text-slate-400' : 'border-slate-200 bg-slate-100 text-slate-600'} text-xs shadow-md`}>
@@ -345,9 +1043,7 @@ export default function App() {
                     {filteredMarkets.map((coin, index) => (
                       <tr key={`${coin.symbol}-${index}`} className={`transition ${darkMode ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50'}`}>
                         <td className="p-4 flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full ${coin.logoBg} flex items-center justify-center font-black text-white shadow-md text-sm shrink-0`}>
-                            {coin.logoText}
-                          </div>
+                          <MarketLogo coin={coin} />
                           <div>
                             <div className="font-bold">{coin.symbol}</div>
                             <div className="text-xs opacity-60">{coin.name}</div>
@@ -377,8 +1073,271 @@ export default function App() {
           </div>
         )}
 
+        {activeTab === 'p2p' && (
+          <div className="max-w-6xl mx-auto space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+              <div><h2 className="text-2xl font-black text-amber-400">P2P MARKET</h2><p className="text-sm opacity-70 mt-1">Buy and sell USDT with Thailand Baht, US Dollar, or Myanmar Kyat.</p></div>
+              <span className={`text-xs font-bold ${p2pApiStatus === 'live' ? 'text-emerald-400' : 'text-amber-400'}`}>● {p2pApiStatus === 'live' ? 'Live FX rates' : 'Updating FX rates'}</span>
+            </div>
+
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {['THB', 'USD', 'MMK'].map((currency) => <button key={currency} type="button" onClick={() => setP2pCurrency(currency)} className={`shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition ${p2pCurrency === currency ? 'bg-amber-600 text-white' : darkMode ? 'bg-slate-900 text-slate-400 hover:text-white' : 'bg-slate-100 text-slate-600'}`}><span className="text-lg">{p2pCurrencyInfo[currency].flag}</span><span>{p2pCurrencyInfo[currency].logo} {currency}<small className="block font-normal opacity-70">{p2pCurrencyInfo[currency].name}</small></span></button>)}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[p2pCurrency, ...(p2pCurrency === 'USD' ? [] : ['USD'])].map((currency) => <div key={currency} className={`${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-2xl p-4 shadow-lg`}><div className="flex items-center gap-2"><span className="text-2xl">{p2pCurrencyInfo[currency].flag}</span><div><div className="text-sm font-bold">{p2pCurrencyInfo[currency].name}</div><div className="text-[10px] opacity-60">{p2pCurrencyInfo[currency].logo} {currency}</div></div></div><div className="text-xl font-black mt-3">{p2pRates[currency]?.toLocaleString(undefined, { maximumFractionDigits: 4 })} <span className="text-sm text-cyan-400">{currency}</span></div><div className="text-[10px] opacity-50 mt-1">Updated: {thailandFormatter.format(p2pRateUpdatedAt)}</div></div>)}
+            </div>
+
+            {p2pCurrency === 'USD' && <div className={`${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-2xl p-4 shadow-lg`}><div className="flex items-center justify-between"><div><h3 className="font-black">Live USD rate</h3><p className="text-xs opacity-60">Updated with the current FX feed</p></div><span className="text-xl font-black text-emerald-400">1 USD</span></div><svg viewBox="0 0 240 64" className="w-full h-16 mt-3" preserveAspectRatio="none"><polyline fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" points={p2pUsdHistory.map((value, index) => `${index * (240 / Math.max(p2pUsdHistory.length - 1, 1))},${48 - ((value - Math.min(...p2pUsdHistory)) / Math.max(Math.max(...p2pUsdHistory) - Math.min(...p2pUsdHistory), 0.0001)) * 36}`).join(' ')} /></svg></div>}
+
+            <form onSubmit={handleP2pOrder} className={`${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-3xl p-5 shadow-xl space-y-4`}>
+                <h3 className="font-black">P2P order</h3>
+                <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-slate-900/70"><button type="button" onClick={() => setP2pSide('buy')} className={`py-2.5 rounded-lg text-xs font-bold ${p2pSide === 'buy' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>Buy USDT</button><button type="button" onClick={() => setP2pSide('sell')} className={`py-2.5 rounded-lg text-xs font-bold ${p2pSide === 'sell' ? 'bg-rose-600 text-white' : 'text-slate-400'}`}>Sell USDT</button></div>
+                <label className="block text-xs opacity-70">USDT amount<input type="number" min="0" step="0.01" value={p2pAmount} onChange={(e) => setP2pAmount(e.target.value)} placeholder="Enter USDT amount" className={`w-full mt-1 ${darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'} border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500`} /></label>
+                <div className="flex justify-between text-xs opacity-60"><span>Live quote</span><span>{p2pAmount ? `${(Number(p2pAmount) * p2pRates[p2pCurrency]).toFixed(2)} ${p2pCurrency}` : `1 USDT = ${p2pRates[p2pCurrency]} ${p2pCurrency}`}</span></div>
+                <button type="submit" className={`w-full py-3.5 rounded-xl text-sm font-black text-white ${p2pSide === 'buy' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-rose-600 hover:bg-rose-500'}`}>{p2pSide === 'buy' ? 'Create Buy Offer' : 'Create Sell Offer'}</button>
+                {p2pNotice && <p className="text-xs text-cyan-400">{p2pNotice}</p>}
+                <p className="text-[10px] opacity-50">Rates are live reference FX rates. P2P settlement is demo until a verified payment provider is connected.</p>
+            </form>
+
+            <div className={`${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-3xl p-5 shadow-xl space-y-4`}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div><h3 className="font-black">History</h3><p className="text-xs opacity-60 mt-1">Buy and sell orders reviewed by admin.</p></div>
+                <button type="button" onClick={() => setP2pIsAdmin((value) => !value)} className="text-xs font-bold text-amber-400 border border-amber-500/30 rounded-lg px-3 py-2">{p2pIsAdmin ? 'Hide Admin Review' : 'Admin Review'}</button>
+              </div>
+              {p2pOrders.length === 0 ? <p className="text-xs opacity-50">No P2P orders yet.</p> : <div className="space-y-2">{p2pOrders.map((order) => <div key={order.id} className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl ${darkMode ? 'bg-slate-900' : 'bg-slate-50'}`}><div className="text-xs"><span className="font-bold uppercase">{order.type} USDT</span> · {order.amount} USDT → {order.quoted.toFixed(2)} {order.currency}<div className="opacity-50 mt-1">{thailandFormatter.format(order.createdAt)}</div></div><span className={`text-xs font-bold ${order.status === 'Approved - payment released' ? 'text-emerald-400' : order.status === 'Rejected' ? 'text-rose-400' : 'text-amber-400'}`}>{order.status}</span></div>)}</div>}
+            </div>
+
+            {p2pIsAdmin && <div className={`${darkMode ? 'bg-amber-950/30 border-amber-500/30' : 'bg-amber-50 border-amber-200'} border rounded-3xl p-5 shadow-xl space-y-5`}>
+              <div><h3 className="font-black text-amber-400">Admin P2P Control</h3><p className="text-xs opacity-60 mt-1">Post rates and review incoming buy/sell requests.</p></div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">{['THB', 'USD', 'MMK'].map((currency) => <label key={currency} className="text-xs font-bold">{p2pCurrencyInfo[currency].flag} {currency}<input type="number" min="0" step="0.0001" value={p2pRates[currency]} onChange={(e) => { setP2pRates((previous) => ({ ...previous, [currency]: Number(e.target.value) })); setP2pRateUpdatedAt(Date.now()); }} className={`w-full mt-1 ${darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'} border rounded-xl px-3 py-2.5 text-sm`} /></label>)}</div>
+              <div className="space-y-2">{p2pOrders.filter((order) => order.status === 'Pending admin review').length === 0 ? <p className="text-xs opacity-60">No pending orders.</p> : p2pOrders.filter((order) => order.status === 'Pending admin review').map((order) => <div key={order.id} className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl ${darkMode ? 'bg-slate-900' : 'bg-white'}`}><span className="text-xs">{order.type.toUpperCase()} · {order.amount} USDT · {order.currency}</span><div className="flex gap-2"><button type="button" onClick={() => updateP2pOrder(order.id, 'Approved - payment released')} className="bg-emerald-600 text-white rounded-lg px-3 py-2 text-xs font-bold">Approve</button><button type="button" onClick={() => updateP2pOrder(order.id, 'Rejected')} className="bg-rose-600 text-white rounded-lg px-3 py-2 text-xs font-bold">Reject</button></div></div>)}</div>
+            </div>}
+          </div>
+        )}
+
+        {activeTab === 'market' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-black text-cyan-400">CRYPTO MARKET</h2>
+                <p className="text-sm opacity-70 mt-1">Current crypto prices and 24-hour market movements.</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <input type="search" value={marketSearch} onChange={(e) => setMarketSearch(e.target.value)} placeholder="Search crypto..." className={`w-44 ${darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-300 text-slate-900'} border rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-cyan-500`} />
+              </div>
+            </div>
+
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {[['new', 'New'], ['gainers', 'Hot Gainers'], ['all', 'All Crypto'], ['stocks', 'Stocks 24/5'], ['metals', 'Metals'], ['indices', 'Indices'], ['forex', 'Forex'], ['commodities', 'Commodities']].map(([category, label]) => <button key={category} type="button" onClick={() => setMarketCategory(category)} className={`shrink-0 px-4 py-2.5 rounded-xl text-xs font-bold transition ${marketCategory === category ? 'bg-cyan-600 text-white' : darkMode ? 'bg-slate-900 text-slate-400 hover:text-white' : 'bg-slate-100 text-slate-600'}`}>{label}</button>)}
+            </div>
+
+            {marketCategory !== 'new' && marketCategory !== 'gainers' && <p className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3">Crypto prices are live from {marketExchange === 'bybit' ? 'Bybit' : 'Binance'}. {marketCategory[0].toUpperCase() + marketCategory.slice(1)} quotes are reference instruments until a licensed multi-asset data provider API is connected.</p>}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {marketPageData.map((coin) => (
+                <div key={coin.symbol} className={`${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-2xl p-4 shadow-lg`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <MarketLogo coin={coin} />
+                      <div className="min-w-0"><div className="font-bold">{coin.symbol}/USDT</div><div className="text-xs opacity-60 truncate">{coin.name}</div></div>
+                    </div>
+                    <span className={`text-xs font-bold ${coin.isUp ? 'text-emerald-400' : 'text-rose-400'}`}>{coin.change}</span>
+                  </div>
+                  <div className="mt-4 flex items-end justify-between gap-3"><div className="text-xl font-black font-mono">${coin.price < 1 ? coin.price.toFixed(6) : coin.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><button type="button" onClick={() => { setSelectedTradeSymbol(coin.symbol); setTradeMode(tradingViewSymbols[coin.symbol] && !marketData.some((item) => item.symbol === coin.symbol) ? 'TradFi' : 'Spot'); setActiveTab('trade'); }} className="bg-cyan-600/20 hover:bg-cyan-600 text-cyan-400 hover:text-white px-3 py-2 rounded-lg text-xs font-bold transition">Trade</button></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'trade' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+              <div>
+                <h2 className="text-2xl font-black text-cyan-400">CRYPTO TRADE</h2>
+                <p className="text-sm opacity-70 mt-1">Trade spot, futures, options and crypto markets from one terminal.</p>
+              </div>
+            </div>
+
+            <div className={`flex gap-1 overflow-x-auto border-b ${darkMode ? 'border-slate-800' : 'border-slate-200'} pb-2`}>
+              {['TradFi', 'Spot', 'Futures', 'Crypto Market', 'Options', 'Alpha', 'Convert'].map((mode) => (
+                <button key={mode} type="button" onClick={() => { setTradeMode(mode); setTradeNotice(''); if (mode === 'TradFi') setSelectedTradeSymbol('EURUSD'); else if (mode === 'Spot' || mode === 'Futures' || mode === 'Crypto Market') setSelectedTradeSymbol('BTC'); }} className={`shrink-0 px-4 py-2.5 rounded-xl text-xs font-bold transition ${tradeMode === mode ? 'bg-cyan-600 text-white shadow-lg' : darkMode ? 'text-slate-400 hover:bg-slate-800 hover:text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+                  {mode}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_22rem] gap-5 items-start">
+              {['TradFi', 'Spot', 'Futures', 'Crypto Market'].includes(tradeMode) && <div className={`${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-3xl p-4 sm:p-5 shadow-xl`}>
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                  <div className="flex items-center gap-3">
+                    <select value={selectedTradeSymbol} onChange={(e) => setSelectedTradeSymbol(e.target.value)} className={`${darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'} border rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-cyan-500`}>
+                      {(tradeMode === 'TradFi' ? tradFiMarkets : marketData.slice(0, 12)).map((coin) => <option key={coin.symbol} value={coin.symbol}>{tradeMode === 'TradFi' ? coin.symbol : `${coin.symbol}/USDT`}</option>)}
+                    </select>
+                    <div>
+                      <div className="flex items-center gap-2"><span className={`w-2 h-2 rounded-full ${selectedTradeCoin.isUp ? 'bg-emerald-400' : 'bg-rose-400'} animate-pulse`}></span><span className="text-[10px] uppercase tracking-wider opacity-50">Last price</span></div>
+                      <div className="text-xl font-black tabular-nums">${selectedTradeCoin.price < 1 ? selectedTradeCoin.price.toFixed(6) : selectedTradeCoin.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                      <div className={`text-xs font-bold ${selectedTradeCoin.isUp ? 'text-emerald-400' : 'text-rose-400'}`}>{selectedTradeCoin.change} 24h</div>
+                    </div>
+                  </div>
+                  <div className="text-right text-xs opacity-60">{tradeMode === 'TradFi' ? 'TradFi market' : 'Crypto market'}<br />Live TradingView chart<br /><span className="text-[10px]">Updated {new Date(marketPriceUpdatedAt).toLocaleTimeString()}</span></div>
+                </div>
+
+                <div className={`${chartExpanded ? 'fixed inset-0 z-[60] rounded-none p-3 sm:p-6' : 'relative h-72 sm:h-96 rounded-2xl'} ${darkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'} border overflow-hidden`}>
+                  <div className="absolute top-3 right-3 z-10 flex gap-2">
+                    <button type="button" onClick={() => setChartExpanded((expanded) => !expanded)} className={`${darkMode ? 'bg-slate-800/90 text-white hover:bg-slate-700' : 'bg-white/90 text-slate-900 hover:bg-slate-100'} border border-white/10 rounded-lg px-3 py-2 text-xs font-bold shadow-lg`}>
+                      {chartExpanded ? 'Exit view' : 'Expand chart'}
+                    </button>
+                  </div>
+                  {tradeMode === 'TradFi' ? <TradingViewChart symbol={tradingViewSymbols[selectedTradeSymbol] || 'FX:EURUSD'} interval={selectedTimeframe === '1D' ? 'D' : selectedTimeframe === '1h' ? '60' : selectedTimeframe === '4h' ? '240' : selectedTimeframe.replace('m', '')} darkMode={darkMode} /> : <AlignedCryptoChart symbol={selectedTradeSymbol} interval={selectedTimeframe === '1D' ? '1d' : selectedTimeframe === '1h' ? '1h' : selectedTimeframe === '4h' ? '4h' : selectedTimeframe === '2m' ? '1m' : selectedTimeframe} darkMode={darkMode} currentPrice={selectedTradeCoin.price} entryPrice={activeFuturesPosition?.entryPrice || activeSpotOrder?.price} side={activeFuturesPosition?.side || activeSpotOrder?.side} />}
+                  {tradeMode === 'TradFi' && activeTradFiPosition && <div className="absolute left-0 right-0 top-1/2 border-t-2 border-dashed border-amber-400 pointer-events-none"><span className="absolute right-3 -top-6 rounded-md bg-amber-500 px-2 py-1 text-[10px] font-bold text-slate-950">Entry {activeTradFiPosition.entryPrice.toFixed(4)}</span></div>}
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 mt-3">
+                  {['1m', '2m', '5m', '15m', '1h', '4h', '1D'].map((timeframe) => (
+                    <button key={timeframe} type="button" onClick={() => setSelectedTimeframe(timeframe)} className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition ${selectedTimeframe === timeframe ? 'bg-cyan-600 text-white' : darkMode ? 'bg-slate-900 text-slate-400 hover:text-white' : 'bg-slate-100 text-slate-600 hover:text-slate-900'}`}>
+                      {timeframe}
+                    </button>
+                  ))}
+                  <span className="ml-auto text-[10px] opacity-50">Live from TradingView</span>
+                </div>
+              </div>}
+
+              {tradeMode === 'Options' && <div className={`${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-3xl p-5 shadow-xl space-y-5`}>
+                <div><h3 className="text-lg font-black text-amber-400">Options Market</h3><p className="text-xs opacity-60 mt-1">Choose an options contract for {selectedTradeCoin.symbol}.</p></div>
+                <div className="grid grid-cols-2 gap-3"><button type="button" className="py-3 rounded-xl bg-emerald-600 text-white font-bold">Call</button><button type="button" className="py-3 rounded-xl bg-rose-600/20 text-rose-400 font-bold">Put</button></div>
+                <div className={`grid grid-cols-2 gap-3 ${darkMode ? 'bg-slate-900' : 'bg-slate-50'} p-4 rounded-2xl text-sm`}><div><span className="text-xs opacity-60">Underlying</span><div className="font-bold mt-1">{selectedTradeCoin.symbol}/USDT</div></div><div><span className="text-xs opacity-60">Spot price</span><div className="font-bold mt-1">${selectedTradeCoin.price.toLocaleString()}</div></div></div>
+                <div className="grid grid-cols-2 gap-3"><div><label className="text-xs opacity-60">Expiry</label><select className={`w-full mt-1 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-300'} border rounded-xl px-3 py-3 text-sm`}><option>Today</option><option>Tomorrow</option><option>7 Days</option></select></div><div><label className="text-xs opacity-60">Strike</label><input value={selectedTradeCoin.price.toFixed(2)} readOnly className={`w-full mt-1 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-300'} border rounded-xl px-3 py-3 text-sm`} /></div></div>
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300">Options order preview is available. Connect an exchange options API to submit live contracts.</div>
+              </div>}
+
+              {tradeMode === 'Alpha' && <div className={`${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-3xl p-5 shadow-xl space-y-4`}>
+                <div><h3 className="text-lg font-black text-fuchsia-400">Alpha Signals</h3><p className="text-xs opacity-60 mt-1">Market opportunities based on the live selected pair.</p></div>
+                {[['Momentum', 'Bullish', 'text-emerald-400'], ['Volume flow', 'Strong', 'text-cyan-400'], ['Risk level', 'Medium', 'text-amber-400']].map(([label, value, color]) => <div key={label} className={`flex items-center justify-between p-4 rounded-2xl ${darkMode ? 'bg-slate-900' : 'bg-slate-50'}`}><span className="text-sm">{label}</span><span className={`text-sm font-bold ${color}`}>{value}</span></div>)}
+                <div className="p-3 rounded-xl bg-fuchsia-500/10 border border-fuchsia-500/20 text-xs text-fuchsia-300">Alpha insights are informational only and do not guarantee profit.</div>
+              </div>}
+
+              {tradeMode === 'Convert' && <div className={`${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-3xl p-5 shadow-xl space-y-4`}>
+                <div><h3 className="text-lg font-black text-cyan-400">Convert Assets</h3><p className="text-xs opacity-60 mt-1">Instantly swap one supported asset for another.</p></div>
+                <label className="block text-xs opacity-70">From<input value="100" readOnly className={`w-full mt-1 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-300'} border rounded-xl px-4 py-3 text-sm`} /></label>
+                <label className="block text-xs opacity-70">Asset pair<select className={`w-full mt-1 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-300'} border rounded-xl px-4 py-3 text-sm`}><option>USDT → {selectedTradeCoin.symbol}</option><option>{selectedTradeCoin.symbol} → USDT</option></select></label>
+                <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-xs text-cyan-300">Live conversion quote will be supplied by the exchange API.</div>
+              </div>}
+
+              <form onSubmit={handleTrade} className={`${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-3xl p-5 shadow-xl space-y-5`}>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-black">{tradeMode} {tradeMode === 'Convert' ? 'Asset' : 'Order'}</h3>
+                  <span className="text-xs opacity-60">Balance ${userBalance.toFixed(2)}</span>
+                </div>
+                {tradeMode === 'TradFi' ? <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-slate-900/70">
+                  <button type="button" onClick={() => setTradFiSide('buy')} className={`py-2.5 rounded-lg text-sm font-bold transition ${tradFiSide === 'buy' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>Buy / Long</button>
+                  <button type="button" onClick={() => setTradFiSide('sell')} className={`py-2.5 rounded-lg text-sm font-bold transition ${tradFiSide === 'sell' ? 'bg-rose-600 text-white' : 'text-slate-400'}`}>Sell / Short</button>
+                </div> : tradeMode === 'Futures' ? <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-slate-900/70">
+                  <button type="button" onClick={() => setFuturesSide('long')} className={`py-2.5 rounded-lg text-sm font-bold transition ${futuresSide === 'long' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>Long / Buy</button>
+                  <button type="button" onClick={() => setFuturesSide('short')} className={`py-2.5 rounded-lg text-sm font-bold transition ${futuresSide === 'short' ? 'bg-rose-600 text-white' : 'text-slate-400'}`}>Short / Sell</button>
+                </div> : <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-slate-900/70">
+                  <button type="button" onClick={() => setTradeSide('buy')} className={`py-2.5 rounded-lg text-sm font-bold transition ${tradeSide === 'buy' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>Buy</button>
+                  <button type="button" onClick={() => setTradeSide('sell')} className={`py-2.5 rounded-lg text-sm font-bold transition ${tradeSide === 'sell' ? 'bg-rose-600 text-white' : 'text-slate-400'}`}>Sell</button>
+                </div>}
+                <div>
+                  <label className="text-xs opacity-70 font-semibold">Market</label>
+                  <div className={`mt-1 px-3 py-3 rounded-xl border text-sm font-bold ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>{selectedTradeCoin.name} ({selectedTradeCoin.symbol})</div>
+                </div>
+                {tradeMode === 'Futures' && <div><label className="text-xs opacity-70 font-semibold">Leverage</label><select value={futuresLeverage} onChange={(e) => setFuturesLeverage(e.target.value)} className={`w-full mt-1 ${darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'} border rounded-xl px-4 py-3 text-sm`}><option value="2">2x</option><option value="5">5x</option><option value="10">10x</option><option value="20">20x</option><option value="50">50x</option></select></div>}
+                <div>
+                  <label className="text-xs opacity-70 font-semibold">{tradeMode === 'Futures' ? 'Margin (USDT)' : tradeMode === 'TradFi' ? 'Trade size / lots' : 'Amount (USDT)'}</label>
+                  <input type="number" min="0" step="0.01" value={tradeAmount} onChange={(e) => setTradeAmount(e.target.value)} placeholder={tradeMode === 'TradFi' ? 'Example: 0.01' : 'Enter amount'} className={`w-full mt-1 ${darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'} border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500`} />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {[25, 100, 500, 1000].map((amount) => <button key={amount} type="button" onClick={() => setTradeAmount(String(amount))} className={`px-3 py-1.5 rounded-lg text-[11px] font-bold ${darkMode ? 'bg-slate-900 text-slate-400 hover:text-white' : 'bg-slate-100 text-slate-600 hover:text-slate-900'}`}>${amount}</button>)}
+                </div>
+                <div className={`grid grid-cols-2 gap-3 ${darkMode ? 'bg-slate-900' : 'bg-slate-50'} rounded-xl p-3 text-xs`}><div><span className="opacity-60">{tradeMode === 'Futures' ? 'Mark price' : 'Live price'}</span><div className="font-bold mt-1">${selectedTradeCoin.price.toLocaleString()}</div></div><div><span className="opacity-60">Est. quantity</span><div className="font-bold mt-1">{tradeAmount && Number(tradeAmount) > 0 ? (tradeMode === 'Futures' ? (Number(tradeAmount) * Number(futuresLeverage) / selectedTradeCoin.price).toFixed(6) : (Number(tradeAmount) / selectedTradeCoin.price).toFixed(6)) : '0.000000'} {selectedTradeCoin.symbol}</div></div></div>
+                <button type="submit" className={`w-full py-3.5 rounded-xl text-sm font-black text-white uppercase transition ${tradeMode === 'TradFi' ? tradFiSide === 'buy' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-rose-600 hover:bg-rose-500' : tradeMode === 'Futures' ? futuresSide === 'long' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-rose-600 hover:bg-rose-500' : tradeSide === 'buy' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-rose-600 hover:bg-rose-500'}`}>{tradeMode === 'TradFi' ? `${tradFiSide === 'buy' ? 'Buy' : 'Sell'} ${selectedTradeCoin.symbol}` : tradeMode === 'Futures' ? `Open ${futuresSide}` : tradeMode === 'Convert' ? 'Convert Asset' : `${tradeSide} ${selectedTradeCoin.symbol}`}</button>
+                {tradeNotice && <p className="text-xs text-cyan-400 leading-relaxed">{tradeNotice}</p>}
+              </form>
+            </div>
+            <div className={`${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-3xl p-5 shadow-xl`}>
+              <div className="flex items-center justify-between mb-4"><h3 className="font-black">Trade History</h3><span className="text-xs opacity-50">{tradeOrders.length} orders</span></div>
+              {tradeOrders.length === 0 ? <p className="text-xs opacity-50">Your completed trades will appear here.</p> : <div className="space-y-2">{tradeOrders.map((order) => <div key={order.id} className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl ${darkMode ? 'bg-slate-900' : 'bg-slate-50'}`}><div className="text-xs"><span className={`font-black uppercase ${order.side === 'buy' ? 'text-emerald-400' : 'text-rose-400'}`}>{order.side}</span> <span className="font-bold">{order.symbol}</span><span className="opacity-60"> · {order.quantity.toFixed(6)} coins at ${order.price.toLocaleString()}</span></div><span className="text-[11px] opacity-50">${order.amount.toFixed(2)} USDT · {order.time}</span></div>)}</div>}
+            </div>
+            {tradeMode === 'Futures' && <div className={`${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-3xl p-5 shadow-xl`}>
+              <div className="flex items-center justify-between mb-4"><h3 className="font-black">Open Positions</h3><span className="text-xs opacity-50">Live mark price</span></div>
+              {futuresPositions.length === 0 ? <p className="text-xs opacity-50">No open futures positions.</p> : <div className="space-y-2">{futuresPositions.map((position) => { const currentPrice = getLivePrice(position.symbol) || position.entryPrice; const pnl = (position.side === 'long' ? currentPrice - position.entryPrice : position.entryPrice - currentPrice) * position.quantity; return <div key={position.id} className={`flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-4 rounded-2xl ${darkMode ? 'bg-slate-900' : 'bg-slate-50'}`}><div className="text-xs"><span className={`font-black uppercase ${position.side === 'long' ? 'text-emerald-400' : 'text-rose-400'}`}>{position.side}</span> <b>{position.symbol}</b> · {position.leverage}x<div className="opacity-60 mt-1">Entry ${position.entryPrice.toLocaleString()} · Mark ${currentPrice.toLocaleString()} · Margin ${position.margin.toFixed(2)}</div></div><div className="flex items-center gap-3"><span className={`font-black ${pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{pnl >= 0 ? '+' : '-'}${Math.abs(pnl).toFixed(2)} PnL</span><button type="button" onClick={() => closeFuturesPosition(position)} className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-lg text-xs font-bold">Close</button></div></div>; })}</div>}
+            </div>}
+            {tradeMode === 'TradFi' && <div className={`${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-3xl p-5 shadow-xl`}>
+              <div className="flex items-center justify-between mb-4"><h3 className="font-black">Open TradFi Positions</h3><span className="text-xs opacity-50">Live PnL</span></div>
+              {tradFiPositions.length === 0 ? <p className="text-xs opacity-50">No open TradFi positions.</p> : <div className="space-y-2">{tradFiPositions.map((position) => { const currentPrice = getLivePrice(position.symbol) || position.entryPrice; const pnl = (position.side === 'buy' ? currentPrice - position.entryPrice : position.entryPrice - currentPrice) * position.size; return <div key={position.id} className={`flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-4 rounded-2xl ${darkMode ? 'bg-slate-900' : 'bg-slate-50'}`}><div className="text-xs"><span className={`font-black uppercase ${position.side === 'buy' ? 'text-emerald-400' : 'text-rose-400'}`}>{position.side}</span> <b>{position.symbol}</b> · Size {position.size.toFixed(2)}<div className="opacity-60 mt-1">Entry ${position.entryPrice.toFixed(4)} · Current ${currentPrice.toFixed(4)}</div></div><div className="flex items-center gap-3"><span className={`font-black ${pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{pnl >= 0 ? '+' : '-'}${Math.abs(pnl).toFixed(4)} PnL</span><button type="button" onClick={() => closeTradFiPosition(position)} className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-lg text-xs font-bold">Stop / Close</button></div></div>; })}</div>}
+            </div>}
+          </div>
+        )}
+
+        {activeTab === 'videoads' && (
+          <div className="max-w-6xl mx-auto space-y-6">
+            <div>
+              <h2 className="text-2xl font-black text-rose-400">VIDEO ADS</h2>
+              <p className="text-sm opacity-70 mt-1">Watch the latest ALEXCE announcements and promotional videos.</p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_20rem] gap-5 items-start">
+              <section className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                {videoAds.map((video) => (
+                  <article key={video.id} className={`${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-3xl overflow-hidden shadow-xl`}>
+                    {video.url ? <video src={video.url} controls className="w-full aspect-video bg-black object-contain" /> : <div className="w-full aspect-video bg-gradient-to-br from-rose-600 via-purple-700 to-cyan-600 flex items-center justify-center text-5xl">▶</div>}
+                    <div className="p-4 space-y-2">
+                      <h3 className="font-black">{video.title}</h3>
+                      <p className="text-xs opacity-65 leading-relaxed">{video.description || 'ALEXCE video announcement'}</p>
+                    </div>
+                  </article>
+                ))}
+              </section>
+
+              <form onSubmit={handleVideoAdUpload} className={`${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-3xl p-5 shadow-xl space-y-4`}>
+                <div>
+                  <h3 className="font-black text-amber-400">Admin Upload</h3>
+                  <p className="text-xs opacity-60 mt-1">Upload a video for users to watch.</p>
+                </div>
+                <input required type="text" value={videoAdTitle} onChange={(e) => setVideoAdTitle(e.target.value)} placeholder="Video title" className={`w-full ${darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'} border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-rose-500`} />
+                <textarea value={videoAdDescription} onChange={(e) => setVideoAdDescription(e.target.value)} placeholder="Short description" rows="3" className={`w-full ${darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'} border rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-rose-500`} />
+                <label className={`block cursor-pointer border border-dashed rounded-xl p-4 text-center text-xs ${darkMode ? 'border-slate-700 hover:bg-slate-900' : 'border-slate-300 hover:bg-slate-50'}`}>
+                  <span>{videoAdFile ? videoAdFile.name : 'Choose MP4, WebM or MOV video'}</span>
+                  <input required type="file" accept="video/mp4,video/webm,video/quicktime" onChange={(e) => setVideoAdFile(e.target.files?.[0] || null)} className="hidden" />
+                </label>
+                <button type="submit" className="w-full py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-black transition">Upload Video Ad</button>
+                <p className="text-[11px] text-amber-300/80">Preview upload is active in this browser. Cloud storage is needed for every user to see it.</p>
+              </form>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'vip' && (
           <div className="space-y-6">
+            <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-3xl border p-5 shadow-xl ${darkMode ? 'bg-gradient-to-r from-cyan-950 via-slate-900 to-purple-950 border-cyan-500/30' : 'bg-gradient-to-r from-cyan-50 via-white to-purple-50 border-cyan-200'}`}>
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-400 font-bold">ALEXCE Trading System</p>
+                <h2 className="text-xl sm:text-2xl font-black mt-1">Launch ALEXCE Trading System</h2>
+                <p className="text-xs opacity-70 mt-1">Thailand time: {thailandTime}</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-center min-w-20">
+                  <div className="text-2xl font-black text-amber-400 tabular-nums">{vipCooldownActive ? `${cooldownHours}:${cooldownMinutes}:${cooldownSeconds}` : 'READY'}</div>
+                  <div className="text-[10px] uppercase tracking-wider opacity-60">{vipCooldownActive ? 'Next action in' : 'Available now'}</div>
+                </div>
+                <button type="button" disabled={vipCooldownActive} onClick={handleVipDailyAction} className={`px-4 py-3 rounded-xl text-xs font-black text-white transition ${vipCooldownActive ? 'bg-slate-600 cursor-not-allowed opacity-70' : 'bg-cyan-600 hover:bg-cyan-500'}`}>
+                  {vipCooldownActive ? '24H Cooldown' : 'Launch System'}
+                </button>
+              </div>
+            </div>
+            <div className={`${darkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'} border rounded-2xl px-4 py-3 text-xs shadow-lg`}>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <span className="font-bold opacity-80">VIP Launch History</span>
+                {lastVipActionTime ? (
+                  <span className="text-emerald-400">Used: {lastVipActionTime} (Thailand time)</span>
+                ) : (
+                  <span className="text-amber-400">Not used yet</span>
+                )}
+              </div>
+              {nextVipActionTime && <div className="mt-1 opacity-60">Next available: {nextVipActionTime} (Thailand time)</div>}
+            </div>
             <div className="text-center max-w-2xl mx-auto space-y-2">
               <h2 className="text-3xl font-black text-amber-400">VIP INVESTMENT TIERS (VIP 1 - VIP 10)</h2>
               <p className="text-sm opacity-70">Choose your VIP card below to view deposit details or simulate referral commissions.</p>
@@ -386,12 +1345,20 @@ export default function App() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-4">
               {vipPlans.map((plan, index) => (
-                <div key={index} className={`rounded-3xl p-6 bg-gradient-to-br ${plan.gradient} border border-white/20 shadow-2xl ${plan.glow} flex flex-col justify-between space-y-6`}>
+                <div key={index} style={{ backgroundColor: vipCardColors[index] }} className={`rounded-3xl p-6 border border-white/25 shadow-2xl ${plan.glow} flex flex-col justify-between space-y-6 relative overflow-hidden`}>
+                  <div className="absolute -right-10 -top-10 w-36 h-36 rounded-full border border-white/15"></div>
+                  <div className="absolute right-5 top-16 w-16 h-10 rounded-lg border border-white/20 bg-white/10 rotate-12"></div>
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
                       <span className="text-xl font-black text-white">{plan.level}</span>
                       <span className="text-[10px] bg-black/40 text-white px-3 py-1 rounded-full font-bold">VIP CARD</span>
                     </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-8 rounded-md bg-gradient-to-br from-yellow-200 to-yellow-500 border border-yellow-100/70 shadow-inner relative"><span className="absolute inset-x-2 top-3 border-t border-yellow-700/50"></span><span className="absolute inset-y-2 left-5 border-l border-yellow-700/50"></span></div>
+                      <span className="text-lg font-black tracking-[0.25em] text-white/80">ALEXCE</span>
+                    </div>
+                    <div className="text-lg font-mono tracking-[0.16em] text-white/90">••••  ••••  ••••  {String(1000 + index).slice(-4)}</div>
+                    <div className="flex justify-between text-[10px] uppercase tracking-wider text-white/70"><span>Member Card</span><span>Valid 12/30</span></div>
                     <div>
                       <span className="text-[11px] text-white/80 uppercase font-bold">Investment Price</span>
                       <div className="text-4xl font-black text-white mt-0.5">${plan.price} <span className="text-sm font-medium text-white/90">USDT</span></div>
@@ -495,7 +1462,7 @@ export default function App() {
           <div className="max-w-4xl mx-auto space-y-8">
             <div className="space-y-4">
               <h2 className="text-2xl font-black text-cyan-400">TRANSACTION HISTORY</h2>
-              <div className={`${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-2xl overflow-hidden shadow-xl`}>
+              <div className={`mobile-scroll-table ${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-2xl overflow-hidden shadow-xl`}>
                 <table className="w-full text-left border-collapse text-sm">
                   <thead>
                     <tr className={`border-b ${darkMode ? 'border-slate-800 bg-slate-900/50 text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-600'} text-xs`}>
@@ -553,6 +1520,101 @@ export default function App() {
           </div>
         )}
 
+        {activeTab === 'groupchat' && (
+          <div className="group-chat-layout max-w-5xl mx-auto space-y-5">
+            <div>
+              <h2 className="text-2xl font-black text-cyan-400">COMMUNITY GROUP CHAT</h2>
+              <p className="text-sm opacity-70 mt-1">Chat with other ALEXCE users and share your trading experience.</p>
+            </div>
+
+            <div className={`group-chat-card ${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-3xl overflow-hidden shadow-xl`}>
+              <div className={`flex items-center justify-between px-5 py-4 border-b ${darkMode ? 'border-slate-800' : 'border-slate-200'}`}>
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span className="font-bold text-sm">ALEXCE Community</span>
+                </div>
+                <span className="text-xs opacity-60">{groupMembers.length} members</span>
+              </div>
+
+              <div className={`h-[26rem] overflow-y-auto space-y-4 p-4 ${darkMode ? 'bg-slate-900/50' : 'bg-slate-50'}`}>
+                {groupMessages.map((message) => (
+                  <div key={message.id} className={`flex ${message.isCurrentUser ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[82%] ${message.isCurrentUser ? 'items-end' : 'items-start'} flex flex-col`}>
+                      <div className="flex items-center gap-2 px-1 mb-1">
+                        <span className={`text-[11px] font-bold ${message.isCurrentUser ? 'text-cyan-400' : 'text-purple-400'}`}>
+                          {message.isCurrentUser ? `${message.user} (You)` : message.user}
+                        </span>
+                        {!message.isSystem && <span className="text-[10px] opacity-40">@{message.userId}</span>}
+                        <span className="text-[10px] opacity-40">{message.time}</span>
+                      </div>
+                      <div className={`${message.isSystem ? 'bg-amber-500/10 border border-amber-500/20 text-amber-300' : message.isCurrentUser ? 'bg-cyan-600 text-white rounded-br-none' : `${darkMode ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-800 border border-slate-200'} rounded-bl-none`} p-3 rounded-2xl text-sm leading-relaxed`}>
+                        {message.text && <div>{message.text}</div>}
+                        {message.mediaUrl && message.mediaType === 'image' && <img src={message.mediaUrl} alt={message.mediaName || 'Shared image'} className="mt-2 max-h-64 max-w-full rounded-xl object-contain" />}
+                        {message.mediaUrl && message.mediaType === 'video' && <video src={message.mediaUrl} controls className="mt-2 max-h-64 max-w-full rounded-xl" />}
+                        {message.mediaName && <div className="mt-1 text-[10px] opacity-60">{message.mediaName}</div>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <form onSubmit={handleSendGroupMessage} className={`p-3 border-t ${darkMode ? 'border-slate-800' : 'border-slate-200'} flex gap-2`}>
+                <label className={`shrink-0 cursor-pointer ${darkMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-100 hover:bg-slate-200'} px-3 py-3 rounded-xl text-sm transition`} title="Upload image or video">
+                  📎
+                  <input type="file" accept="image/*,video/*" onChange={handleGroupAttachment} className="hidden" />
+                </label>
+                <input
+                  type="text"
+                  value={groupMessage}
+                  onChange={(e) => setGroupMessage(e.target.value)}
+                  placeholder="Write a message to the group..."
+                  className={`flex-1 min-w-0 ${darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'} border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500`}
+                />
+                <button type="submit" className="bg-cyan-600 hover:bg-cyan-500 text-white px-5 py-3 rounded-xl text-xs font-bold transition shadow-lg">
+                  Send
+                </button>
+              </form>
+              {groupAttachment && <div className={`px-4 pb-3 text-xs ${darkMode ? 'text-cyan-300' : 'text-cyan-700'}`}>Attached: {groupAttachment.name}</div>}
+            </div>
+
+            <aside className={`group-chat-members ${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-3xl p-4 shadow-xl`}>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-bold text-sm">Group Members</h3>
+                <span className="text-xs opacity-60">{groupMembers.length}</span>
+              </div>
+              <div className="space-y-2 mb-5 max-h-40 overflow-y-auto">
+                {groupMembers.map((member) => (
+                  <div key={member.id} className={`flex items-center gap-2 p-2 rounded-xl ${darkMode ? 'bg-slate-900' : 'bg-slate-50'}`}>
+                    <span className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-cyan-500 flex items-center justify-center text-xs font-black text-white">{member.name[0]}</span>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold truncate">{member.name}</div>
+                      <div className="text-[10px] opacity-50 truncate">@{member.userId}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className={`border-t ${darkMode ? 'border-slate-800' : 'border-slate-200'} pt-4`}>
+                <h3 className="font-bold text-sm mb-1">Invite a user</h3>
+                <p className="text-[11px] opacity-60 mb-2">Search by name or user ID</p>
+                <input type="search" value={groupMemberSearch} onChange={(e) => setGroupMemberSearch(e.target.value)} placeholder="Name or user ID" className={`w-full ${darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'} border rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-cyan-500`} />
+                {groupMemberSearch && (
+                  <div className="mt-2 space-y-2">
+                    {inviteableMembers.length > 0 ? inviteableMembers.map((member) => (
+                      <div key={member.id} className={`flex items-center justify-between gap-2 p-2 rounded-xl ${darkMode ? 'bg-slate-900' : 'bg-slate-50'}`}>
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold truncate">{member.name}</div>
+                          <div className="text-[10px] opacity-50 truncate">@{member.userId}</div>
+                        </div>
+                        <button type="button" onClick={() => handleInviteToGroup(member)} className="shrink-0 bg-purple-600 hover:bg-purple-500 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold">Invite</button>
+                      </div>
+                    )) : <p className="text-[11px] opacity-50 mt-2">No user found</p>}
+                  </div>
+                )}
+              </div>
+            </aside>
+          </div>
+        )}
+
         {activeTab === 'share' && (
           <div className={`max-w-xl mx-auto space-y-6 ${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200 shadow-xl'} border rounded-3xl p-6 md:p-8`}>
             <p className="text-sm font-medium opacity-80">Build your own team and receive multi-level commissions automatically.</p>
@@ -605,7 +1667,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className={`${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-2xl overflow-hidden shadow-xl`}>
+            <div className={`mobile-scroll-table ${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-2xl overflow-hidden shadow-xl`}>
               <table className="w-full text-left border-collapse text-sm">
                 <thead>
                   <tr className={`border-b ${darkMode ? 'border-slate-800 bg-slate-900/50 text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-600'} text-xs`}>
@@ -667,8 +1729,12 @@ export default function App() {
           <div className="max-w-4xl mx-auto space-y-6">
             <div className={`bg-gradient-to-r ${darkMode ? 'from-purple-900/40 via-indigo-950 to-slate-900 border-slate-800' : 'from-purple-100 via-indigo-50 to-white border-slate-200'} border p-8 rounded-3xl shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6`}>
               <div className="flex items-center gap-5 w-full md:w-auto">
-                <div className="w-20 h-20 bg-gradient-to-tr from-purple-600 to-indigo-500 rounded-3xl flex items-center justify-center text-3xl font-black text-white shadow-xl">
-                  {username[0]}
+                <div className="relative w-20 h-20 shrink-0">
+                  {profileImage ? <img src={profileImage} alt={`${username} profile`} className="w-20 h-20 rounded-3xl object-cover shadow-xl" /> : <div className="w-20 h-20 bg-gradient-to-tr from-purple-600 to-indigo-500 rounded-3xl flex items-center justify-center text-3xl font-black text-white shadow-xl">{username[0]}</div>}
+                  <label className="absolute -right-2 -bottom-2 w-8 h-8 rounded-full bg-cyan-600 hover:bg-cyan-500 border-2 border-slate-950 flex items-center justify-center text-sm cursor-pointer shadow-lg" title="Upload profile photo">
+                    📷
+                    <input type="file" accept="image/*" onChange={handleProfileImageUpload} className="hidden" />
+                  </label>
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center gap-3">
@@ -838,7 +1904,7 @@ export default function App() {
       </main>
 
       <div
-        className="fixed z-50 cursor-grab active:cursor-grabbing select-none"
+        className="chat-widget fixed z-50 cursor-grab active:cursor-grabbing select-none"
         style={{ left: `${chatPos.x}px`, top: `${chatPos.y}px` }}
         onMouseDown={handleMouseDown}
         onTouchStart={handleTouchStart}

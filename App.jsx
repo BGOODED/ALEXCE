@@ -245,7 +245,7 @@ export default function App() {
     <div className={`${darkMode ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-900'} min-h-screen`}>
       <header className={`${darkMode ? 'bg-slate-950/90 border-slate-800' : 'bg-white/90 border-slate-200'} sticky top-0 z-40 border-b backdrop-blur-xl`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4 gap-4">
+          <div className="site-header-inner flex items-center justify-between py-4 gap-4">
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-purple-600 to-cyan-500 flex items-center justify-center font-black text-lg shadow-lg shadow-purple-500/30">
                 A
@@ -256,7 +256,7 @@ export default function App() {
               </div>
             </div>
 
-            <nav className="hidden md:flex items-center gap-2 text-xs font-semibold">
+            <nav className="site-nav hidden md:flex items-center gap-2 text-xs font-semibold">
               {['home', 'vip', 'share', 'team', 'history', 'support', 'me'].map((tab) => (
                 <button
                   key={tab}
@@ -286,7 +286,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="site-main max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'home' && (
           <div className="space-y-8">
             <div className={`bg-gradient-to-r ${darkMode ? 'from-purple-900/50 via-indigo-950 to-slate-900 border-slate-800' : 'from-purple-100 via-indigo-50 to-slate-100 border-slate-200'} border rounded-3xl p-8 md:p-12 shadow-2xl flex flex-col md:flex-row justify-between items-center gap-8`}>
@@ -294,7 +294,7 @@ export default function App() {
                 <span className="bg-purple-500/10 text-purple-400 text-xs px-3 py-1.5 rounded-full font-bold border border-purple-500/20">Secure Web3 Platform</span>
                 <h1 className="text-4xl md:text-5xl font-black tracking-tight">Trade & Earn Daily Fixed Income with ALEXCE</h1>
                 <p className="opacity-80 text-sm leading-relaxed">Unlock high-yield VIP tiers ranging from VIP 1 to VIP 10 with guaranteed daily interest.</p>
-                <div className="flex gap-4 pt-2">
+                <div className="mobile-action-row flex gap-4 pt-2">
                   <button onClick={() => setActiveTab('vip')} className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-6 py-3 rounded-xl shadow-lg transition">Explore VIP Plans</button>
                   <button onClick={() => setActiveTab('share')} className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-6 py-3 rounded-xl shadow-lg transition">Invite & Earn</button>
                 </div>
@@ -330,7 +330,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className={`${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-2xl overflow-hidden shadow-xl max-h-[650px] overflow-y-auto`}>
+              <div className={`mobile-scroll-table market-table ${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-2xl overflow-hidden shadow-xl max-h-[650px] overflow-y-auto`}>
                 <table className="w-full text-left border-collapse">
                   <thead className="sticky top-0 z-10">
                     <tr className={`border-b ${darkMode ? 'border-slate-800 bg-[#12161f] text-slate-400' : 'border-slate-200 bg-slate-100 text-slate-600'} text-xs shadow-md`}>
@@ -495,7 +495,7 @@ export default function App() {
           <div className="max-w-4xl mx-auto space-y-8">
             <div className="space-y-4">
               <h2 className="text-2xl font-black text-cyan-400">TRANSACTION HISTORY</h2>
-              <div className={`${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-2xl overflow-hidden shadow-xl`}>
+              <div className={`mobile-scroll-table ${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-2xl overflow-hidden shadow-xl`}>
                 <table className="w-full text-left border-collapse text-sm">
                   <thead>
                     <tr className={`border-b ${darkMode ? 'border-slate-800 bg-slate-900/50 text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-600'} text-xs`}>
@@ -605,7 +605,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className={`${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-2xl overflow-hidden shadow-xl`}>
+            <div className={`mobile-scroll-table ${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-2xl overflow-hidden shadow-xl`}>
               <table className="w-full text-left border-collapse text-sm">
                 <thead>
                   <tr className={`border-b ${darkMode ? 'border-slate-800 bg-slate-900/50 text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-600'} text-xs`}>
@@ -838,7 +838,7 @@ export default function App() {
       </main>
 
       <div
-        className="fixed z-50 cursor-grab active:cursor-grabbing select-none"
+        className="chat-widget fixed z-50 cursor-grab active:cursor-grabbing select-none"
         style={{ left: `${chatPos.x}px`, top: `${chatPos.y}px` }}
         onMouseDown={handleMouseDown}
         onTouchStart={handleTouchStart}
