@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { CandlestickSeries, ColorType, CrosshairMode, HistogramSeries, LineSeries, LineStyle, createChart } from 'lightweight-charts';
 import { TIMEFRAMES, fetchKlines, openBybitStream } from './bybitGold.js';
+import { MIN_HISTORY, buildForecast } from './goldForecast.js';
 import { bollinger, rsi, sma } from './indicators.js';
 
 const INITIAL_BARS = 1000;
 const MAX_BARS = 10000;
 const VISIBLE_BARS = 150;
+const FORECAST_FIT_BARS = 500;
 const STUDIES = ['volume', 'ma20', 'ma50', 'bb', 'rsi', 'forecast'];
 const COLORS = { up: '#26a69a', down: '#ef5350', ma20: '#f59e0b', ma50: '#a855f7', bb: '#3b82f6', rsi: '#a855f7', forecast: '#22d3ee' };
 const PRICE_FORMAT = { type: 'price', precision: 2, minMove: 0.01 };
@@ -16,6 +18,14 @@ const TZ_OFFSET_SECONDS = -new Date().getTimezoneOffset() * 60;
 const toChartTime = (ms, intraday) => Math.floor(ms / 1000) + (intraday ? TZ_OFFSET_SECONDS : 0);
 
 const formatPrice = (value) => (Number.isFinite(value) ? value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—');
+const formatDuration = (ms) => {
+  const minutes = Math.round(ms / 60000);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = minutes / 60;
+  if (hours < 48) return `${+hours.toFixed(1)}h`;
+  const days = hours / 24;
+  return days < 14 ? `${+days.toFixed(1)}d` : `${+(days / 7).toFixed(1)}w`;
+};
 const formatVolume = (value) => (Number.isFinite(value) ? value.toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 2 }) : '—');
 
 const themeOptions = (darkMode) => {
@@ -51,7 +61,7 @@ function buildSeries(chart, settings) {
     series.bbMiddle = overlay(COLORS.bb, { lineStyle: LineStyle.Dashed });
     series.bbLower = overlay(COLORS.bb);
   }
-  if (settings.forecast) {
+  if (studies.forecast) {
     series.forecastMid = overlay(COLORS.forecast, { lineWidth: 2, lineStyle: LineStyle.Dashed, lastValueVisible: true, title: settings.forecastLabel });
     series.forecastHigh = overlay(COLORS.forecast, { lineStyle: LineStyle.Dotted });
     series.forecastLow = overlay(COLORS.forecast, { lineStyle: LineStyle.Dotted });
@@ -73,12 +83,12 @@ const futureForecast = (candles, forecast) => {
   return forecast && last ? forecast.filter((point) => point.time > last.time) : [];
 };
 
-function setForecastData(series, candles, settings) {
+function setForecastData(series, candles, settings, forecast) {
   if (!series.forecastMid || !candles.length) return;
   const last = candles[candles.length - 1];
-  const anchor = { time: toChartTime(last.time, false), value: last.close };
-  const points = futureForecast(candles, settings.forecast);
-  const line = (key) => [anchor, ...points.map((point) => ({ time: toChartTime(point.time, false), value: point[key] }))];
+  const anchor = { time: toChartTime(last.time, settings.intraday), value: last.close };
+  const points = futureForecast(candles, forecast);
+  const line = (key) => [anchor, ...points.map((point) => ({ time: toChartTime(point.time, settings.intraday), value: point[key] }))];
   series.forecastMid.setData(line('price'));
   series.forecastHigh.setData(line('high80'));
   series.forecastLow.setData(line('low80'));
@@ -99,7 +109,7 @@ const indicatorLines = (series, values) => [
   [series.bbUpper, values.bb?.upper], [series.bbMiddle, values.bb?.middle], [series.bbLower, values.bb?.lower],
 ].filter(([target, data]) => target && data);
 
-function setAllData(series, candles, settings) {
+function setAllData(series, candles, settings, forecast) {
   if (!series.main || !candles.length) return;
   const time = (ms) => toChartTime(ms, settings.intraday);
   series.main.setData(settings.chartType === 'candles'
@@ -109,7 +119,7 @@ function setAllData(series, candles, settings) {
   indicatorLines(series, indicatorValues(candles, settings.studies)).forEach(([target, data]) => {
     target.setData(data.flatMap((value, index) => (value === null ? [] : [{ time: time(candles[index].time), value }])));
   });
-  setForecastData(series, candles, settings);
+  setForecastData(series, candles, settings, forecast);
 }
 
 // Live tick: update only the newest bar of every series.
@@ -125,13 +135,13 @@ function updateLatest(series, candles, settings) {
   });
 }
 
-function showRecent(chart, count, settings) {
-  const extra = settings.forecast ? settings.forecast.length + 4 : 8;
+function showRecent(chart, count, forecast) {
+  const extra = forecast ? forecast.length + 4 : 8;
   chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, count - VISIBLE_BARS), to: count + extra });
   chart.priceScale('right').applyOptions({ autoScale: true });
 }
 
-export default function GoldChart({ market, darkMode, t, forecast, dateLocale }) {
+export default function GoldChart({ market, darkMode, t, forecastHorizon, dateLocale }) {
   const containerRef = useRef(null);
   const chartRef = useRef(null);
   const seriesRef = useRef({});
@@ -139,6 +149,8 @@ export default function GoldChart({ market, darkMode, t, forecast, dateLocale })
   const viewRef = useRef({ key: '' });
   const settingsRef = useRef(null);
   const loadOlderRef = useRef(null);
+  const forecastRef = useRef(null);
+  const refreshForecastRef = useRef(null);
   const [timeframe, setTimeframe] = useState('1H');
   const [chartType, setChartType] = useState('candles');
   const [studies, setStudies] = useState({ volume: true, ma20: true, ma50: false, bb: false, rsi: false, forecast: true });
@@ -148,10 +160,11 @@ export default function GoldChart({ market, darkMode, t, forecast, dateLocale })
   const [lastCandle, setLastCandle] = useState(null);
   const [expanded, setExpanded] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [, setForecastVersion] = useState(0);
 
   const frame = TIMEFRAMES.find((item) => item.id === timeframe);
-  const forecastPoints = studies.forecast && frame.id === '1D' && forecast?.length ? forecast : null;
-  settingsRef.current = { chartType, studies, intraday: frame.intraday, forecast: forecastPoints, forecastLabel: t.legend.forecast };
+  const forecastBars = frame.forecastBars ?? forecastHorizon;
+  settingsRef.current = { chartType, studies, intraday: frame.intraday, stepMs: frame.ms, forecastBars, forecastLabel: t.legend.forecast };
   const marketKey = market ? `${market.category}:${market.symbol}` : '';
 
   useEffect(() => {
@@ -182,20 +195,24 @@ export default function GoldChart({ market, darkMode, t, forecast, dateLocale })
     chartRef.current?.applyOptions(themeOptions(darkMode));
   }, [darkMode]);
 
-  const hasForecast = Boolean(forecastPoints);
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
     const range = candlesRef.current.length ? chart.timeScale().getVisibleLogicalRange() : null;
     Object.values(seriesRef.current).forEach((series) => chart.removeSeries(series));
     seriesRef.current = buildSeries(chart, settingsRef.current);
-    setAllData(seriesRef.current, candlesRef.current, settingsRef.current);
+    setAllData(seriesRef.current, candlesRef.current, settingsRef.current, forecastRef.current);
     if (range) chart.timeScale().setVisibleLogicalRange(range);
-  }, [chartType, studies, hasForecast]);
+  }, [chartType, studies]);
 
-  useEffect(() => {
-    setForecastData(seriesRef.current, candlesRef.current, settingsRef.current);
-  }, [forecast]);
+  // Projects the next bars of the current timeframe from its recent closes.
+  refreshForecastRef.current = () => {
+    const candles = candlesRef.current;
+    const { stepMs, forecastBars: bars } = settingsRef.current;
+    forecastRef.current = bars && candles.length >= MIN_HISTORY ? buildForecast(candles.slice(-FORECAST_FIT_BARS), bars, stepMs).path : null;
+    setForecastData(seriesRef.current, candles, settingsRef.current, forecastRef.current);
+    setForecastVersion((version) => version + 1);
+  };
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -213,9 +230,13 @@ export default function GoldChart({ market, darkMode, t, forecast, dateLocale })
       const candles = candlesRef.current;
       const last = candles[candles.length - 1];
       if (!last || bar.time < last.time) return;
-      if (bar.time === last.time) candles[candles.length - 1] = bar;
-      else candles.push(bar);
+      const opensNewBar = bar.time > last.time;
+      if (opensNewBar) candles.push(bar);
+      else candles[candles.length - 1] = bar;
       updateLatest(seriesRef.current, candles, settingsRef.current);
+      // A new bar refits the projection; a tick only moves its starting point.
+      if (opensNewBar) refreshForecastRef.current();
+      else setForecastData(seriesRef.current, candles, settingsRef.current, forecastRef.current);
       setLastCandle(bar);
     };
 
@@ -224,8 +245,9 @@ export default function GoldChart({ market, darkMode, t, forecast, dateLocale })
         if (controller.signal.aborted || viewRef.current !== view) return;
         if (!candles.length) throw new Error('No candles');
         candlesRef.current = candles;
-        setAllData(seriesRef.current, candles, settingsRef.current);
-        showRecent(chart, candles.length, settingsRef.current);
+        setAllData(seriesRef.current, candles, settingsRef.current, null);
+        refreshForecastRef.current();
+        showRecent(chart, candles.length, forecastRef.current);
         setLastCandle(candles[candles.length - 1]);
         setStatus('ready');
         closeStream = openBybitStream(market.category, [`kline.${frame.interval}.${market.symbol}`], {
@@ -245,6 +267,10 @@ export default function GoldChart({ market, darkMode, t, forecast, dateLocale })
     };
   }, [marketKey, frame.interval, frame.intraday, reloadKey]);
 
+  useEffect(() => {
+    refreshForecastRef.current();
+  }, [forecastBars]);
+
   // Scrolling near the left edge loads older bars, like TradingView.
   loadOlderRef.current = async () => {
     const view = viewRef.current;
@@ -261,7 +287,7 @@ export default function GoldChart({ market, darkMode, t, forecast, dateLocale })
       }
       const range = chart.timeScale().getVisibleLogicalRange();
       candlesRef.current = [...older, ...candlesRef.current];
-      setAllData(seriesRef.current, candlesRef.current, settingsRef.current);
+      setAllData(seriesRef.current, candlesRef.current, settingsRef.current, forecastRef.current);
       if (range) chart.timeScale().setVisibleLogicalRange({ from: range.from + older.length, to: range.to + older.length });
     } catch {
       // A failed page of history is retried on the next scroll.
@@ -285,7 +311,7 @@ export default function GoldChart({ market, darkMode, t, forecast, dateLocale })
   }, [expanded]);
 
   const resetView = () => {
-    if (chartRef.current && candlesRef.current.length) showRecent(chartRef.current, candlesRef.current.length, settingsRef.current);
+    if (chartRef.current && candlesRef.current.length) showRecent(chartRef.current, candlesRef.current.length, forecastRef.current);
   };
 
   // Legend: hovered bar, or the latest bar when the pointer is outside the chart.
@@ -295,7 +321,9 @@ export default function GoldChart({ market, darkMode, t, forecast, dateLocale })
   const shown = hoveringCandle ? candles[hoverIndex] : lastCandle || candles[shownIndex];
   const previous = candles[shownIndex - 1];
   const change = shown && previous ? shown.close - previous.close : null;
-  const hoveredForecast = hoverIndex !== null && hoverIndex >= candles.length ? futureForecast(candles, forecastPoints)[hoverIndex - candles.length] : null;
+  const projection = studies.forecast ? futureForecast(candles, forecastRef.current) : [];
+  const hoveredForecast = hoverIndex !== null && hoverIndex >= candles.length ? projection[hoverIndex - candles.length] : null;
+  const projectionEnd = projection[projection.length - 1];
   const values = candles.length ? indicatorValues(candles, studies) : {};
   const at = (series) => series?.[shownIndex] ?? null;
   const formatBarTime = (ms) => new Intl.DateTimeFormat(dateLocale, frame.intraday
@@ -348,8 +376,10 @@ export default function GoldChart({ market, darkMode, t, forecast, dateLocale })
                 {studies.bb && <span style={{ color: COLORS.bb }}>BB 20 2 · {formatPrice(at(values.bb?.upper))} / {formatPrice(at(values.bb?.middle))} / {formatPrice(at(values.bb?.lower))}</span>}
                 {studies.rsi && <span style={{ color: COLORS.rsi }}>RSI 14 {Number.isFinite(at(values.rsi)) ? at(values.rsi).toFixed(1) : '—'}</span>}
               </div>
-              {hoveredForecast && (
+              {hoveredForecast ? (
                 <div style={{ color: COLORS.forecast }}>{t.legend.forecast} {formatBarTime(hoveredForecast.time)} · {formatPrice(hoveredForecast.price)} ({formatPrice(hoveredForecast.low80)} – {formatPrice(hoveredForecast.high80)})</div>
+              ) : projectionEnd && (
+                <div style={{ color: COLORS.forecast }}>{t.chart.forecastAhead(formatDuration(projectionEnd.horizon * frame.ms))} · {formatPrice(projectionEnd.price)} (80% {formatPrice(projectionEnd.low80)} – {formatPrice(projectionEnd.high80)})</div>
               )}
             </div>
           )}
@@ -362,10 +392,7 @@ export default function GoldChart({ market, darkMode, t, forecast, dateLocale })
           )}
         </div>
 
-        <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-1 px-4 py-2 text-[11px] opacity-60 border-t ${darkMode ? 'border-slate-800' : 'border-slate-200'}`}>
-          <span>{t.chart.hint}</span>
-          {studies.forecast && frame.id !== '1D' && <span>{t.chart.forecastOnDaily}</span>}
-        </div>
+        <div className={`px-4 py-2 text-[11px] opacity-60 border-t ${darkMode ? 'border-slate-800' : 'border-slate-200'}`}>{t.chart.hint}</div>
       </div>
     </div>
   );

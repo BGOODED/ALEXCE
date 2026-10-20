@@ -77,7 +77,8 @@ export function fitHolt(series) {
 }
 
 // Point forecast (median) plus 80% / 95% ranges that widen with sqrt(horizon).
-export function buildForecast(candles, maxHorizon = 30) {
+// stepMs is the bar length, so the same model projects daily or intraday candles.
+export function buildForecast(candles, maxHorizon = 30, stepMs = DAY_MS) {
   const logPrices = candles.map((candle) => Math.log(candle.close));
   const params = fitHolt(logPrices);
   const { levels, trends } = runHolt(logPrices, params);
@@ -96,7 +97,7 @@ export function buildForecast(candles, maxHorizon = 30) {
     const spread = sigma * Math.sqrt(horizon);
     path.push({
       horizon,
-      time: lastTime + horizon * DAY_MS,
+      time: lastTime + horizon * stepMs,
       price: Math.exp(center),
       low80: Math.exp(center - Z80 * spread),
       high80: Math.exp(center + Z80 * spread),

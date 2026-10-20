@@ -15,14 +15,15 @@ export const GOLD_MARKETS = [
   { category: 'spot', symbol: 'PAXGUSDT', name: 'PAX Gold (PAXG) spot' },
 ];
 
+// forecastBars: how many bars ahead the chart projects (1D follows the selected forecast horizon).
 export const TIMEFRAMES = [
-  { id: '1m', interval: '1', intraday: true },
-  { id: '5m', interval: '5', intraday: true },
-  { id: '15m', interval: '15', intraday: true },
-  { id: '1H', interval: '60', intraday: true },
-  { id: '4H', interval: '240', intraday: true },
-  { id: '1D', interval: 'D', intraday: false },
-  { id: '1W', interval: 'W', intraday: false },
+  { id: '1m', interval: '1', intraday: true, ms: 60e3, forecastBars: 30 },
+  { id: '5m', interval: '5', intraday: true, ms: 300e3, forecastBars: 24 },
+  { id: '15m', interval: '15', intraday: true, ms: 900e3, forecastBars: 16 },
+  { id: '1H', interval: '60', intraday: true, ms: 3600e3, forecastBars: 24 },
+  { id: '4H', interval: '240', intraday: true, ms: 14400e3, forecastBars: 18 },
+  { id: '1D', interval: 'D', intraday: false, ms: 86400e3, forecastBars: null },
+  { id: '1W', interval: 'W', intraday: false, ms: 604800e3, forecastBars: 8 },
 ];
 
 const toNumber = (value) => (value === undefined || value === null || value === '' ? undefined : Number(value));

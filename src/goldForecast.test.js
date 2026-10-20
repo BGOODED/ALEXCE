@@ -74,3 +74,10 @@ test('marketSignals classifies trend and momentum', () => {
   assert.equal(falling.trend, 'down');
   assert.equal(falling.momentum, 'oversold');
 });
+
+test('buildForecast spaces projected points by the bar length', () => {
+  const candles = makeCandles(randomWalk(120));
+  const fifteenMinutes = 15 * 60 * 1000;
+  const { path } = buildForecast(candles, 4, fifteenMinutes);
+  assert.deepEqual(path.map((point) => point.time - candles[candles.length - 1].time), [1, 2, 3, 4].map((step) => step * fifteenMinutes));
+});

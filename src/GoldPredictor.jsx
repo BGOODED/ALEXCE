@@ -25,7 +25,7 @@ const goldText = {
       fullscreen: 'Full screen',
       exitFullscreen: 'Exit',
       hint: 'Scroll or pinch to zoom · drag to pan · drag an axis to stretch · double-click an axis to reset',
-      forecastOnDaily: 'Switch to 1D to see the forecast on the chart.',
+      forecastAhead: (duration) => `Forecast +${duration}`,
       loading: 'Loading chart…',
       error: 'Could not load Bybit chart data.',
     },
@@ -82,7 +82,7 @@ const goldText = {
       fullscreen: 'မျက်နှာပြင်အပြည့်',
       exitFullscreen: 'ထွက်ရန်',
       hint: 'ချဲ့/ချုံ့ရန် scroll လုပ်ပါ သို့မဟုတ် လက်နှစ်ချောင်းဖြင့် ဆွဲပါ · ဘေးတိုက်ရွှေ့ရန် ဆွဲပါ · ဝင်ရိုးကို ဆွဲ၍ ဆန့်နိုင်သည် · မူလအတိုင်းပြန်ရန် ဝင်ရိုးကို နှစ်ချက်နှိပ်ပါ',
-      forecastOnDaily: 'ဇယားပေါ်တွင် ခန့်မှန်းချက်ကြည့်ရန် 1D သို့ ပြောင်းပါ။',
+      forecastAhead: (duration) => `${duration} အကြာ ခန့်မှန်းစျေး`,
       loading: 'ဇယား ဖွင့်နေသည်…',
       error: 'Bybit ဇယားဒေတာ ရယူ၍မရပါ။',
     },
@@ -139,7 +139,7 @@ const goldText = {
       fullscreen: 'เต็มจอ',
       exitFullscreen: 'ออก',
       hint: 'เลื่อนหรือจีบนิ้วเพื่อซูม · ลากเพื่อเลื่อน · ลากแกนเพื่อยืด · ดับเบิลคลิกที่แกนเพื่อรีเซ็ต',
-      forecastOnDaily: 'เปลี่ยนเป็น 1D เพื่อดูเส้นพยากรณ์บนกราฟ',
+      forecastAhead: (duration) => `พยากรณ์ +${duration}`,
       loading: 'กำลังโหลดกราฟ…',
       error: 'โหลดข้อมูลกราฟ Bybit ไม่ได้',
     },
@@ -244,7 +244,6 @@ export default function GoldPredictor({ darkMode, language }) {
   const forecast = useMemo(() => (ready ? buildForecast(candles, 30) : null), [candles, ready]);
   const signals = useMemo(() => (ready ? marketSignals(candles) : null), [candles, ready]);
   const accuracy = useMemo(() => (ready ? backtest(candles, horizon) : null), [candles, horizon, ready]);
-  const chartForecast = useMemo(() => (forecast ? forecast.path.slice(0, horizon) : null), [forecast, horizon]);
 
   const dateLocale = dateLocales[language] || dateLocales.en;
   const formatDate = (time) => new Intl.DateTimeFormat(dateLocale, { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(time);
@@ -331,7 +330,7 @@ export default function GoldPredictor({ darkMode, language }) {
             <p className="text-[11px] opacity-60 mt-4 leading-relaxed">{t.mt5Note}</p>
           </div>
 
-          <GoldChart market={market} darkMode={darkMode} t={t} forecast={chartForecast} dateLocale={dateLocale} />
+          <GoldChart market={market} darkMode={darkMode} t={t} forecastHorizon={horizon} dateLocale={dateLocale} />
         </>
       )}
 
