@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import GoldPredictor from './GoldPredictor.jsx';
 
 const tradingViewSymbols = {
   BTC: 'BINANCE:BTCUSDT',
@@ -46,9 +47,9 @@ const referenceLogoDomains = {
 const nonCryptoMarketSymbols = new Set(['AAPL', 'MSFT', 'NVDA', 'TSLA', 'XAUUSD', 'XAGUSD', 'XPTUSD', 'XPDUSD', 'SPX', 'NDX', 'DJI', 'EURUSD', 'GBPUSD', 'USDJPY', 'WTI', 'BRENT', 'NATGAS']);
 
 const languageLabels = {
-  en: { home: 'HOME', trade: 'TRADE', vip: 'VIP', videoAds: 'VIDEO ADS', share: 'SHARE', team: 'TEAM', history: 'HISTORY', groupChat: 'GROUP CHAT', support: 'SUPPORT', me: 'ME', light: 'Light', dark: 'Dark', withdraw: 'Withdraw' },
-  my: { home: 'ပင်မ', trade: 'အရောင်းအဝယ်', vip: 'VIP', videoAds: 'ဗီဒီယိုကြော်ငြာ', share: 'မျှဝေ', team: 'အဖွဲ့', history: 'မှတ်တမ်း', groupChat: 'ဂရုချတ်', support: 'အကူအညီ', me: 'အကောင့်', light: 'အလင်း', dark: 'အမှောင်', withdraw: 'ငွေထုတ်' },
-  th: { home: 'หน้าหลัก', trade: 'เทรด', vip: 'VIP', videoAds: 'โฆษณาวิดีโอ', share: 'แชร์', team: 'ทีม', history: 'ประวัติ', groupChat: 'แชทกลุ่ม', support: 'ช่วยเหลือ', me: 'บัญชี', light: 'สว่าง', dark: 'มืด', withdraw: 'ถอนเงิน' },
+  en: { home: 'HOME', trade: 'TRADE', gold: 'GOLD', vip: 'VIP', videoAds: 'VIDEO ADS', share: 'SHARE', team: 'TEAM', history: 'HISTORY', groupChat: 'GROUP CHAT', support: 'SUPPORT', me: 'ME', light: 'Light', dark: 'Dark', withdraw: 'Withdraw' },
+  my: { home: 'ပင်မ', trade: 'အရောင်းအဝယ်', gold: 'ရွှေစျေး', vip: 'VIP', videoAds: 'ဗီဒီယိုကြော်ငြာ', share: 'မျှဝေ', team: 'အဖွဲ့', history: 'မှတ်တမ်း', groupChat: 'ဂရုချတ်', support: 'အကူအညီ', me: 'အကောင့်', light: 'အလင်း', dark: 'အမှောင်', withdraw: 'ငွေထုတ်' },
+  th: { home: 'หน้าหลัก', trade: 'เทรด', gold: 'ทองคำ', vip: 'VIP', videoAds: 'โฆษณาวิดีโอ', share: 'แชร์', team: 'ทีม', history: 'ประวัติ', groupChat: 'แชทกลุ่ม', support: 'ช่วยเหลือ', me: 'บัญชี', light: 'สว่าง', dark: 'มืด', withdraw: 'ถอนเงิน' },
 };
 
 const uiTranslations = {
@@ -412,7 +413,7 @@ export default function App() {
     let textNode = textWalker.nextNode();
 
     while (textNode) {
-      if (textNode.parentElement && !['SCRIPT', 'STYLE'].includes(textNode.parentElement.tagName)) {
+      if (textNode.parentElement && !['SCRIPT', 'STYLE'].includes(textNode.parentElement.tagName) && !textNode.parentElement.closest('[data-localized]')) {
         if (!originalTextNodes.current.has(textNode)) originalTextNodes.current.set(textNode, textNode.nodeValue);
         const originalText = originalTextNodes.current.get(textNode);
         let translatedText = originalText;
@@ -425,6 +426,7 @@ export default function App() {
     }
 
     document.querySelectorAll('input[placeholder], textarea[placeholder]').forEach((element) => {
+      if (element.closest('[data-localized]')) return;
       if (!element.dataset.originalPlaceholder) element.dataset.originalPlaceholder = element.getAttribute('placeholder');
       const originalPlaceholder = element.dataset.originalPlaceholder;
       element.setAttribute('placeholder', translations[originalPlaceholder] || originalPlaceholder);
@@ -944,8 +946,8 @@ export default function App() {
               </div>
             </div>
 
-            <nav className="site-nav hidden md:flex items-center gap-2 text-xs font-semibold">
-              {['home', 'trade', 'p2p', 'market', 'vip', 'videoads', 'share', 'team', 'history', 'groupchat', 'support', 'me'].map((tab) => (
+            <nav data-localized className="site-nav hidden md:flex items-center gap-2 text-xs font-semibold">
+              {['home', 'trade', 'p2p', 'market', 'gold', 'vip', 'videoads', 'share', 'team', 'history', 'groupchat', 'support', 'me'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -1150,6 +1152,8 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {activeTab === 'gold' && <GoldPredictor darkMode={darkMode} language={language} fxRates={p2pRates} />}
 
         {activeTab === 'trade' && (
           <div className="space-y-6">
