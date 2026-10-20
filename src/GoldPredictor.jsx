@@ -26,6 +26,15 @@ const goldText = {
       exitFullscreen: 'Exit',
       hint: 'Scroll or pinch to zoom · drag to pan · drag an axis to stretch · double-click an axis to reset',
       forecastAhead: (duration) => `Forecast +${duration}`,
+      predictionTitle: 'Price prediction',
+      predictionSubtitle: (frame) => `From the ${frame} chart. Updates with every new candle.`,
+      inLabel: (duration) => `In ${duration}`,
+      up: 'Up',
+      down: 'Down',
+      chanceUp: 'Chance of rising',
+      range80: '80% range',
+      hitRate: (percent, samples) => `Direction right ${percent}% of the time over the last ${samples} candles`,
+      notEnough: 'Needs at least 60 candles to predict.',
       loading: 'Loading chart…',
       error: 'Could not load Bybit chart data.',
     },
@@ -83,6 +92,15 @@ const goldText = {
       exitFullscreen: 'ထွက်ရန်',
       hint: 'ချဲ့/ချုံ့ရန် scroll လုပ်ပါ သို့မဟုတ် လက်နှစ်ချောင်းဖြင့် ဆွဲပါ · ဘေးတိုက်ရွှေ့ရန် ဆွဲပါ · ဝင်ရိုးကို ဆွဲ၍ ဆန့်နိုင်သည် · မူလအတိုင်းပြန်ရန် ဝင်ရိုးကို နှစ်ချက်နှိပ်ပါ',
       forecastAhead: (duration) => `${duration} အကြာ ခန့်မှန်းစျေး`,
+      predictionTitle: 'စျေး ကြိုတင်ခန့်မှန်းချက်',
+      predictionSubtitle: (frame) => `${frame} ဇယားမှ တွက်ထားသည်။ Candle အသစ်ပေါ်တိုင်း ပြန်တွက်သည်။`,
+      inLabel: (duration) => `${duration} အကြာ`,
+      up: 'တက်',
+      down: 'ကျ',
+      chanceUp: 'တက်နိုင်ခြေ',
+      range80: '၈၀% အပိုင်းအခြား',
+      hitRate: (percent, samples) => `နောက်ဆုံး candle ${samples} ခုတွင် အတက်/အကျ ${percent}% မှန်ခဲ့သည်`,
+      notEnough: 'ခန့်မှန်းရန် candle အနည်းဆုံး ၆၀ လိုသည်။',
       loading: 'ဇယား ဖွင့်နေသည်…',
       error: 'Bybit ဇယားဒေတာ ရယူ၍မရပါ။',
     },
@@ -140,6 +158,15 @@ const goldText = {
       exitFullscreen: 'ออก',
       hint: 'เลื่อนหรือจีบนิ้วเพื่อซูม · ลากเพื่อเลื่อน · ลากแกนเพื่อยืด · ดับเบิลคลิกที่แกนเพื่อรีเซ็ต',
       forecastAhead: (duration) => `พยากรณ์ +${duration}`,
+      predictionTitle: 'คาดการณ์ราคาล่วงหน้า',
+      predictionSubtitle: (frame) => `คำนวณจากกราฟ ${frame} อัปเดตทุกแท่งเทียนใหม่`,
+      inLabel: (duration) => `อีก ${duration}`,
+      up: 'ขึ้น',
+      down: 'ลง',
+      chanceUp: 'โอกาสขึ้น',
+      range80: 'ช่วง 80%',
+      hitRate: (percent, samples) => `ทายทิศทางถูก ${percent}% ใน ${samples} แท่งล่าสุด`,
+      notEnough: 'ต้องมีอย่างน้อย 60 แท่งเพื่อคาดการณ์',
       loading: 'กำลังโหลดกราฟ…',
       error: 'โหลดข้อมูลกราฟ Bybit ไม่ได้',
     },
@@ -330,7 +357,7 @@ export default function GoldPredictor({ darkMode, language }) {
             <p className="text-[11px] opacity-60 mt-4 leading-relaxed">{t.mt5Note}</p>
           </div>
 
-          <GoldChart market={market} darkMode={darkMode} t={t} forecastHorizon={horizon} dateLocale={dateLocale} />
+          <GoldChart market={market} darkMode={darkMode} t={t} dateLocale={dateLocale} />
         </>
       )}
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { CandlestickSeries, ColorType, CrosshairMode, HistogramSeries, LineSeries, LineStyle, createChart } from 'lightweight-charts';
 import { TIMEFRAMES, fetchKlines, openBybitStream } from './bybitGold.js';
-import { MIN_HISTORY, buildForecast } from './goldForecast.js';
+import { MIN_HISTORY, backtest, buildForecast, normalCdf } from './goldForecast.js';
 import { bollinger, rsi, sma } from './indicators.js';
 
 const INITIAL_BARS = 1000;
@@ -141,7 +141,7 @@ function showRecent(chart, count, forecast) {
   chart.priceScale('right').applyOptions({ autoScale: true });
 }
 
-export default function GoldChart({ market, darkMode, t, forecastHorizon, dateLocale }) {
+export default function GoldChart({ market, darkMode, t, dateLocale }) {
   const containerRef = useRef(null);
   const chartRef = useRef(null);
   const seriesRef = useRef({});
@@ -160,11 +160,10 @@ export default function GoldChart({ market, darkMode, t, forecastHorizon, dateLo
   const [lastCandle, setLastCandle] = useState(null);
   const [expanded, setExpanded] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  const [, setForecastVersion] = useState(0);
+  const [prediction, setPrediction] = useState(null);
 
   const frame = TIMEFRAMES.find((item) => item.id === timeframe);
-  const forecastBars = frame.forecastBars ?? forecastHorizon;
-  settingsRef.current = { chartType, studies, intraday: frame.intraday, stepMs: frame.ms, forecastBars, forecastLabel: t.legend.forecast };
+  settingsRef.current = { chartType, studies, intraday: frame.intraday, stepMs: frame.ms, checkpoints: frame.checkpoints, forecastLabel: t.legend.forecast };
   const marketKey = market ? `${market.category}:${market.symbol}` : '';
 
   useEffect(() => {
@@ -205,13 +204,21 @@ export default function GoldChart({ market, darkMode, t, forecastHorizon, dateLo
     if (range) chart.timeScale().setVisibleLogicalRange(range);
   }, [chartType, studies]);
 
-  // Projects the next bars of the current timeframe from its recent closes.
+  // Projects the next bars of the current timeframe from its recent closes, and backtests
+  // each checkpoint on the same bars so the panel can show how often the direction was right.
   refreshForecastRef.current = () => {
     const candles = candlesRef.current;
-    const { stepMs, forecastBars: bars } = settingsRef.current;
-    forecastRef.current = bars && candles.length >= MIN_HISTORY ? buildForecast(candles.slice(-FORECAST_FIT_BARS), bars, stepMs).path : null;
+    const { stepMs, checkpoints } = settingsRef.current;
+    if (candles.length < MIN_HISTORY) {
+      forecastRef.current = null;
+      setPrediction(null);
+    } else {
+      const recent = candles.slice(-FORECAST_FIT_BARS);
+      const path = buildForecast(recent, checkpoints[checkpoints.length - 1], stepMs).path;
+      forecastRef.current = path;
+      setPrediction(checkpoints.map((bars) => ({ ...path[bars - 1], accuracy: backtest(recent, bars) })));
+    }
     setForecastData(seriesRef.current, candles, settingsRef.current, forecastRef.current);
-    setForecastVersion((version) => version + 1);
   };
 
   useEffect(() => {
@@ -220,6 +227,8 @@ export default function GoldChart({ market, darkMode, t, forecastHorizon, dateLo
     const view = { key: `${marketKey}:${frame.interval}:${reloadKey}`, market, interval: frame.interval, loadingOlder: false, reachedStart: false };
     viewRef.current = view;
     candlesRef.current = [];
+    forecastRef.current = null;
+    setPrediction(null);
     setStatus('loading');
     setHoverIndex(null);
     chart.applyOptions({ timeScale: { timeVisible: frame.intraday, secondsVisible: false } });
@@ -266,10 +275,6 @@ export default function GoldChart({ market, darkMode, t, forecastHorizon, dateLo
       closeStream?.();
     };
   }, [marketKey, frame.interval, frame.intraday, reloadKey]);
-
-  useEffect(() => {
-    refreshForecastRef.current();
-  }, [forecastBars]);
 
   // Scrolling near the left edge loads older bars, like TradingView.
   loadOlderRef.current = async () => {
@@ -334,8 +339,43 @@ export default function GoldChart({ market, darkMode, t, forecastHorizon, dateLo
   const toolButton = (active) => `shrink-0 px-2.5 py-1.5 rounded-md text-xs font-bold transition ${active ? (darkMode ? 'bg-slate-700 text-white' : 'bg-slate-900 text-white') : darkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`;
   const divider = <span className={`shrink-0 w-px h-5 ${darkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />;
   const streamColor = streamStatus === 'live' ? 'bg-emerald-400' : 'bg-amber-400';
+  const livePrice = shown && !hoveringCandle ? shown.close : lastCandle?.close;
 
   return (
+    <>
+    <div className={`${panel} border rounded-3xl shadow-xl p-5`}>
+      <div className="mb-4">
+        <h3 className="font-black text-lg">{t.chart.predictionTitle}</h3>
+        <p className="text-xs opacity-60 mt-1">{t.chart.predictionSubtitle(frame.id)}</p>
+      </div>
+      {prediction && Number.isFinite(livePrice) ? (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {prediction.map((point) => {
+            // Chance and direction are measured from the live price, so they always agree.
+            const spread = Math.log(point.high80 / point.price) / 1.2816;
+            const chanceUp = spread > 0 ? normalCdf(Math.log(point.price / livePrice) / spread) : point.price >= livePrice ? 1 : 0;
+            const up = point.price >= livePrice;
+            const tone = up ? 'text-emerald-400' : 'text-rose-400';
+            const move = point.price - livePrice;
+            return (
+              <div key={point.horizon} className={`rounded-2xl p-4 ${darkMode ? 'bg-slate-900/70' : 'bg-slate-50'}`}>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="opacity-70 font-bold">{t.chart.inLabel(formatDuration(point.horizon * frame.ms))}</span>
+                  <span className={`font-black ${tone}`}>{up ? '▲' : '▼'} {up ? t.chart.up : t.chart.down}</span>
+                </div>
+                <div className="text-2xl font-black tabular-nums mt-2">{formatPrice(point.price)}</div>
+                <div className={`text-xs tabular-nums mt-0.5 ${tone}`}>{move >= 0 ? '+' : ''}{formatPrice(move)} ({move >= 0 ? '+' : ''}{((move / livePrice) * 100).toFixed(2)}%)</div>
+                <div className="text-[11px] tabular-nums opacity-70 mt-2">{t.chart.range80}: {formatPrice(point.low80)} – {formatPrice(point.high80)}</div>
+                <div className="text-[11px] mt-1"><span className="opacity-70">{t.chart.chanceUp}</span> <b className={tone}>{Math.round(chanceUp * 100)}%</b></div>
+                {point.accuracy?.directionAccuracy != null && (
+                  <div className="text-[10px] opacity-50 mt-1">{t.chart.hitRate(Math.round(point.accuracy.directionAccuracy * 100), point.accuracy.samples)}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : <p className="text-xs opacity-60">{status === 'ready' ? t.chart.notEnough : t.chart.loading}</p>}
+    </div>
     <div className={expanded ? `fixed inset-0 z-[70] flex flex-col p-2 sm:p-4 ${darkMode ? 'bg-slate-950' : 'bg-slate-100'}` : ''}>
       <div className={`${panel} border rounded-3xl shadow-xl overflow-hidden flex flex-col ${expanded ? 'flex-1 min-h-0' : ''}`}>
         <div className={`flex items-center gap-1.5 overflow-x-auto px-3 py-2 border-b ${darkMode ? 'border-slate-800' : 'border-slate-200'}`}>
@@ -395,5 +435,6 @@ export default function GoldChart({ market, darkMode, t, forecastHorizon, dateLo
         <div className={`px-4 py-2 text-[11px] opacity-60 border-t ${darkMode ? 'border-slate-800' : 'border-slate-200'}`}>{t.chart.hint}</div>
       </div>
     </div>
+    </>
   );
 }
