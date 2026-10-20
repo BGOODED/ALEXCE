@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import GoldPredictor from './GoldPredictor.jsx';
+import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
+
+// Loaded on demand so the charting library only downloads when the GOLD tab opens.
+const GoldPredictor = lazy(() => import('./GoldPredictor.jsx'));
 
 const tradingViewSymbols = {
   BTC: 'BINANCE:BTCUSDT',
@@ -946,7 +948,7 @@ export default function App() {
               </div>
             </div>
 
-            <nav data-localized className="site-nav hidden md:flex items-center gap-2 text-xs font-semibold">
+            <nav data-localized className="site-nav hidden md:flex min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden items-center gap-2 text-xs font-semibold">
               {['home', 'trade', 'p2p', 'market', 'gold', 'vip', 'videoads', 'share', 'team', 'history', 'groupchat', 'support', 'me'].map((tab) => (
                 <button
                   key={tab}
@@ -1153,7 +1155,11 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'gold' && <GoldPredictor darkMode={darkMode} language={language} fxRates={p2pRates} />}
+        {activeTab === 'gold' && (
+          <Suspense fallback={<p className="text-sm opacity-60 animate-pulse">Loading…</p>}>
+            <GoldPredictor darkMode={darkMode} language={language} />
+          </Suspense>
+        )}
 
         {activeTab === 'trade' && (
           <div className="space-y-6">

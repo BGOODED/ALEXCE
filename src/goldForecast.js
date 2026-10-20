@@ -1,49 +1,13 @@
-// Gold price feed and forecasting helpers for the GOLD tab.
-// All prices are USD per troy ounce; use unitFactor() to convert for display.
+// Gold forecasting helpers: damped-trend model, backtest and market signals.
+// Input candles are { time (ms), close } in ascending order, one per day.
+import { rsi, sma } from './indicators.js';
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
-export const TROY_OUNCE_GRAMS = 31.1034768;
-export const KYATTHA_GRAMS = 16.33; // Myanmar tical (ကျပ်သား)
-export const THAI_BAHT_GRAMS = 15.244; // Thai gold baht-weight
-export const THAI_GOLD_PURITY = 0.965;
 export const FORECAST_HORIZONS = [1, 7, 14, 30];
 export const MIN_HISTORY = 60;
 
 const Z80 = 1.2816;
 const Z95 = 1.96;
-
-const parseBinanceKlines = (rows) => rows.map((row) => ({ time: Number(row[0]), close: Number(row[4]) }));
-
-// PAX Gold (PAXG) is backed 1:1 by a troy ounce of gold and trades 24/7, so its
-// daily candles are a free, CORS-friendly proxy for XAU/USD.
-const HISTORY_SOURCES = [
-  { name: 'Binance', url: 'https://api.binance.com/api/v3/klines?symbol=PAXGUSDT&interval=1d&limit=400', parse: parseBinanceKlines },
-  { name: 'Binance', url: 'https://data-api.binance.vision/api/v3/klines?symbol=PAXGUSDT&interval=1d&limit=400', parse: parseBinanceKlines },
-  { name: 'Bybit', url: 'https://api.bybit.com/v5/market/kline?category=spot&symbol=PAXGUSDT&interval=D&limit=400', parse: (payload) => (payload.result?.list || []).map((row) => ({ time: Number(row[0]), close: Number(row[4]) })) },
-];
-
-export async function fetchGoldHistory(signal) {
-  for (const source of HISTORY_SOURCES) {
-    try {
-      const response = await fetch(source.url, { signal });
-      if (!response.ok) continue;
-      const candles = source.parse(await response.json())
-        .filter((candle) => Number.isFinite(candle.time) && candle.close > 0)
-        .sort((a, b) => a.time - b.time);
-      if (candles.length >= MIN_HISTORY) return { source: source.name, candles };
-    } catch (error) {
-      if (signal?.aborted) throw error;
-    }
-  }
-  throw new Error('Gold price feed unavailable');
-}
-
-export function unitFactor(unit, { mmkRate, thbRate, purity = 1 }) {
-  if (unit === 'usd_g') return 1 / TROY_OUNCE_GRAMS;
-  if (unit === 'mmk_kyattha') return (KYATTHA_GRAMS / TROY_OUNCE_GRAMS) * purity * mmkRate;
-  if (unit === 'thb_baht') return (THAI_BAHT_GRAMS / TROY_OUNCE_GRAMS) * THAI_GOLD_PURITY * thbRate;
-  return 1;
-}
 
 const mean = (values) => values.reduce((sum, value) => sum + value, 0) / values.length;
 
@@ -187,28 +151,10 @@ export function backtest(candles, horizon, windowSize = 120) {
   };
 }
 
-export function simpleMovingAverage(values, period) {
-  return values.length >= period ? mean(values.slice(-period)) : null;
-}
+const lastValue = (values) => (values.length ? values[values.length - 1] : null);
 
-// Wilder's RSI.
-export function relativeStrengthIndex(values, period = 14) {
-  if (values.length <= period) return null;
-  let gain = 0;
-  let loss = 0;
-  for (let index = 1; index < values.length; index += 1) {
-    const change = values[index] - values[index - 1];
-    if (index <= period) {
-      gain += Math.max(change, 0) / period;
-      loss += Math.max(-change, 0) / period;
-    } else {
-      gain = (gain * (period - 1) + Math.max(change, 0)) / period;
-      loss = (loss * (period - 1) + Math.max(-change, 0)) / period;
-    }
-  }
-  if (loss === 0) return gain === 0 ? 50 : 100;
-  return 100 - 100 / (1 + gain / loss);
-}
+export const simpleMovingAverage = (values, period) => lastValue(sma(values, period));
+export const relativeStrengthIndex = (values, period = 14) => lastValue(rsi(values, period));
 
 export function marketSignals(candles) {
   const closes = candles.map((candle) => candle.close);

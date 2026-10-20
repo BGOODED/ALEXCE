@@ -1,31 +1,44 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { FORECAST_HORIZONS, MIN_HISTORY, backtest, buildForecast, fetchGoldHistory, marketSignals, unitFactor } from './goldForecast.js';
+import React, { useEffect, useMemo, useState } from 'react';
+import GoldChart from './GoldChart.jsx';
+import { fetchGoldHistory, fetchKlines, fetchTicker, openBybitStream } from './bybitGold.js';
+import { FORECAST_HORIZONS, MIN_HISTORY, backtest, buildForecast, marketSignals } from './goldForecast.js';
 
-const MMK_RATE_STORAGE_KEY = 'alexce-gold-mmk-rate';
-const HISTORY_DAYS = 90;
-const UNITS = ['mmk_kyattha', 'usd_oz', 'usd_g', 'thb_baht'];
 const dateLocales = { en: 'en-US', my: 'my-MM', th: 'th-TH-u-ca-gregory' };
 
 const goldText = {
   en: {
     title: 'GOLD PRICE FORECAST',
-    subtitle: 'Live world gold price with a statistical forecast, likely price ranges and an honest accuracy check.',
-    status: { loading: 'Loading prices…', live: 'Live', stale: 'Showing last loaded prices', offline: 'Price feed offline' },
+    subtitle: 'Live Bybit TradFi gold price with a TradingView-style chart and a statistical forecast.',
+    status: { loading: 'Loading Bybit prices…', live: 'Live', stale: 'Showing last loaded prices', offline: 'Bybit price feed offline' },
+    stream: { connecting: 'Connecting…', live: 'Real-time', reconnecting: 'Reconnecting…' },
     retry: 'Retry',
     updated: 'Updated',
-    units: { usd_oz: 'USD / oz', usd_g: 'USD / gram', mmk_kyattha: 'MMK / tical', thb_baht: 'THB / baht' },
+    marketType: { linear: 'TradFi Perpetual', spot: 'Spot' },
+    ticker: { change24h: '24h change', high24h: '24h high', low24h: '24h low', markPrice: 'Mark price', indexPrice: 'Index (spot gold)', buySell: 'Buy / Sell', turnover24h: '24h turnover', fundingRate: 'Funding rate' },
+    fallbackNotice: (symbol) => `Bybit XAUUSDT is unavailable right now, so this page is showing Bybit ${symbol}. Its price can differ from Bybit TradFi gold.`,
+    mt5Note: 'Bybit TradFi’s MT5 symbol XAUUSD.s has no public price feed. XAUUSDT is Bybit’s gold TradFi perpetual on the public API and tracks the same spot gold, so the two usually differ by only a few dollars.',
+    chart: {
+      candles: 'Candles',
+      line: 'Line',
+      studies: { volume: 'Vol', ma20: 'MA 20', ma50: 'MA 50', bb: 'BB', rsi: 'RSI', forecast: 'Forecast' },
+      reset: 'Reset',
+      fullscreen: 'Full screen',
+      exitFullscreen: 'Exit',
+      hint: 'Scroll or pinch to zoom · drag to pan · drag an axis to stretch · double-click an axis to reset',
+      forecastOnDaily: 'Switch to 1D to see the forecast on the chart.',
+      loading: 'Loading chart…',
+      error: 'Could not load Bybit chart data.',
+    },
+    legend: { forecast: 'Forecast' },
+    forecastTitle: 'Forecast',
+    forecastSubtitle: 'Based on Bybit daily closes.',
+    lastPrice: 'Last price',
     days: (h) => (h === 1 ? '1 day' : `${h} days`),
-    currentPrice: 'Current price',
-    today: 'Today',
     forecastIn: (h) => `Forecast in ${h === 1 ? '1 day' : `${h} days`}`,
     vsToday: 'vs today',
     likelyRange: 'Likely range (80%)',
     rangeHint: '8 in 10 chance the price ends inside',
     chanceHigher: 'Chance of ending higher',
-    chartTitle: 'Price history & forecast',
-    chartSubtitle: 'Last 90 days, then the forecast with 80% / 95% ranges.',
-    convertedNote: 'Converted at today’s exchange rate.',
-    legend: { history: 'Price', forecast: 'Forecast', band80: '80% range', band95: '95% range' },
     signalsTitle: 'Market signals',
     trend: 'Trend',
     trendValues: { up: 'Uptrend', down: 'Downtrend', sideways: 'Sideways' },
@@ -47,37 +60,42 @@ const goldText = {
     notEnoughData: 'Not enough price history to test this horizon yet.',
     tableTitle: 'Forecast table',
     columns: { horizon: 'Horizon', date: 'Date', forecast: 'Forecast', range: '80% range', chance: 'Chance higher' },
-    localTitle: 'Myanmar price settings',
-    fxRate: 'Exchange rate (MMK per 1 USD)',
-    useLiveRate: 'Use live rate',
-    liveRate: 'Live feed rate',
-    purity: 'Gold purity',
-    purityOptions: { pe16: '16 pe (pure gold)', pe15: '15 pe' },
-    fxNote: 'Estimated from the world gold price. Local shops quote at the market exchange rate and add their own premium, which can differ from the live feed rate — enter today’s market rate for a closer local estimate.',
-    kyat: 'Ks',
-    lakh: 'lakh',
-    sourceNote: (source) => `Prices from ${source}: PAX Gold (PAXG/USDT), a token backed by one troy ounce of London gold, which tracks world gold (XAU/USD) closely.`,
+    sourceNote: (symbol, name) => `Prices: Bybit ${symbol} (${name}) public market data — REST for history, WebSocket for live updates. Chart by TradingView Lightweight Charts.`,
     disclaimer: 'Forecasts are statistical estimates from past prices only (damped-trend smoothing on log prices, with ranges from recent volatility). They cannot foresee news or central-bank decisions, are not financial advice, and gold can move outside these ranges.',
   },
   my: {
     title: 'ရွှေစျေး ခန့်မှန်းချက်',
-    subtitle: 'ကမ္ဘာ့ရွှေစျေး တိုက်ရိုက်နှင့် စာရင်းအင်းနည်းဖြင့် ခန့်မှန်းချက်၊ ဖြစ်နိုင်ခြေရှိသော စျေးအပိုင်းအခြားများနှင့် တိကျမှုစစ်ဆေးချက်။',
-    status: { loading: 'စျေးနှုန်းများ ရယူနေသည်…', live: 'တိုက်ရိုက်', stale: 'နောက်ဆုံးရရှိထားသော စျေးနှုန်းများကို ပြသနေသည်', offline: 'စျေးနှုန်းဒေတာ ချိတ်ဆက်၍မရပါ' },
+    subtitle: 'Bybit TradFi ရွှေစျေး တိုက်ရိုက်၊ TradingView ပုံစံ ဇယားနှင့် စာရင်းအင်းနည်းဖြင့် ခန့်မှန်းချက်။',
+    status: { loading: 'Bybit စျေးနှုန်းများ ရယူနေသည်…', live: 'တိုက်ရိုက်', stale: 'နောက်ဆုံးရရှိထားသော စျေးနှုန်းများကို ပြသနေသည်', offline: 'Bybit စျေးနှုန်းဒေတာ ချိတ်ဆက်၍မရပါ' },
+    stream: { connecting: 'ချိတ်ဆက်နေသည်…', live: 'အချိန်နှင့်တပြေးညီ', reconnecting: 'ပြန်လည်ချိတ်ဆက်နေသည်…' },
     retry: 'ထပ်ကြိုးစားရန်',
     updated: 'အပ်ဒိတ်',
-    units: { usd_oz: 'ဒေါ်လာ / အောင်စ', usd_g: 'ဒေါ်လာ / ဂရမ်', mmk_kyattha: 'ကျပ် / ကျပ်သား', thb_baht: 'ဘတ် / ဘတ်ချိန်' },
+    marketType: { linear: 'TradFi Perpetual', spot: 'Spot' },
+    ticker: { change24h: '၂၄ နာရီ ပြောင်းလဲမှု', high24h: '၂၄ နာရီ အမြင့်ဆုံး', low24h: '၂၄ နာရီ အနိမ့်ဆုံး', markPrice: 'Mark စျေး', indexPrice: 'Index (spot ရွှေစျေး)', buySell: 'Buy / Sell (ဝယ် / ရောင်း)', turnover24h: '၂၄ နာရီ အရောင်းအဝယ်တန်ဖိုး', fundingRate: 'Funding နှုန်း' },
+    fallbackNotice: (symbol) => `Bybit XAUUSDT ကို ယခု ရယူ၍မရသဖြင့် Bybit ${symbol} ကို ပြသနေသည်။ ၎င်း၏စျေးသည် Bybit TradFi ရွှေစျေးနှင့် ကွာခြားနိုင်သည်။`,
+    mt5Note: 'Bybit TradFi ၏ MT5 သင်္ကေတ XAUUSD.s အတွက် အများသုံး စျေးနှုန်း API မရှိပါ။ XAUUSDT သည် Bybit ၏ အများသုံး API ပေါ်ရှိ ရွှေ TradFi perpetual ဖြစ်ပြီး spot ရွှေစျေးကို လိုက်သောကြောင့် နှစ်ခုကြား ဒေါ်လာ အနည်းငယ်သာ ကွာလေ့ရှိသည်။',
+    chart: {
+      candles: 'ဖယောင်းတိုင်',
+      line: 'မျဉ်း',
+      studies: { volume: 'Vol', ma20: 'MA 20', ma50: 'MA 50', bb: 'BB', rsi: 'RSI', forecast: 'ခန့်မှန်း' },
+      reset: 'ပြန်ညှိ',
+      fullscreen: 'မျက်နှာပြင်အပြည့်',
+      exitFullscreen: 'ထွက်ရန်',
+      hint: 'ချဲ့/ချုံ့ရန် scroll လုပ်ပါ သို့မဟုတ် လက်နှစ်ချောင်းဖြင့် ဆွဲပါ · ဘေးတိုက်ရွှေ့ရန် ဆွဲပါ · ဝင်ရိုးကို ဆွဲ၍ ဆန့်နိုင်သည် · မူလအတိုင်းပြန်ရန် ဝင်ရိုးကို နှစ်ချက်နှိပ်ပါ',
+      forecastOnDaily: 'ဇယားပေါ်တွင် ခန့်မှန်းချက်ကြည့်ရန် 1D သို့ ပြောင်းပါ။',
+      loading: 'ဇယား ဖွင့်နေသည်…',
+      error: 'Bybit ဇယားဒေတာ ရယူ၍မရပါ။',
+    },
+    legend: { forecast: 'ခန့်မှန်းချက်' },
+    forecastTitle: 'ခန့်မှန်းချက်',
+    forecastSubtitle: 'Bybit နေ့စဉ် ပိတ်စျေးများကို အခြေခံထားသည်။',
+    lastPrice: 'နောက်ဆုံးစျေး',
     days: (h) => `${h} ရက်`,
-    currentPrice: 'လက်ရှိစျေး',
-    today: 'ယနေ့',
     forecastIn: (h) => `${h} ရက်အကြာ ခန့်မှန်းစျေး`,
     vsToday: 'ယနေ့စျေးနှင့် နှိုင်းယှဉ်လျှင်',
     likelyRange: 'ဖြစ်နိုင်ခြေရှိသော အပိုင်းအခြား (၈၀%)',
     rangeHint: '၁၀ ကြိမ်တွင် ၈ ကြိမ် ဤအပိုင်းအခြားအတွင်း ရှိနိုင်သည်',
     chanceHigher: 'စျေးတက်နိုင်ခြေ',
-    chartTitle: 'စျေးနှုန်းမှတ်တမ်းနှင့် ခန့်မှန်းချက်',
-    chartSubtitle: 'လွန်ခဲ့သော ၉၀ ရက်နှင့် ၈၀% / ၉၅% အပိုင်းအခြားပါ ခန့်မှန်းချက်။',
-    convertedNote: 'ယနေ့ငွေလဲနှုန်းဖြင့် တွက်ချက်ထားသည်။',
-    legend: { history: 'စျေးနှုန်း', forecast: 'ခန့်မှန်းချက်', band80: '၈၀% အပိုင်းအခြား', band95: '၉၅% အပိုင်းအခြား' },
     signalsTitle: 'စျေးကွက်အချက်ပြများ',
     trend: 'လမ်းကြောင်း',
     trendValues: { up: 'အတက်', down: 'အကျ', sideways: 'ဘေးတိုက်' },
@@ -99,37 +117,42 @@ const goldText = {
     notEnoughData: 'ဤကာလကို စမ်းသပ်ရန် စျေးနှုန်းမှတ်တမ်း မလုံလောက်သေးပါ။',
     tableTitle: 'ခန့်မှန်းချက်ဇယား',
     columns: { horizon: 'ကာလ', date: 'ရက်စွဲ', forecast: 'ခန့်မှန်းစျေး', range: '၈၀% အပိုင်းအခြား', chance: 'တက်နိုင်ခြေ' },
-    localTitle: 'မြန်မာရွှေစျေး ဆက်တင်',
-    fxRate: 'ငွေလဲနှုန်း (၁ ဒေါ်လာ = ကျပ်)',
-    useLiveRate: 'တိုက်ရိုက်နှုန်း သုံးရန်',
-    liveRate: 'တိုက်ရိုက်ဒေတာနှုန်း',
-    purity: 'ရွှေအရည်အသွေး',
-    purityOptions: { pe16: '၁၆ ပဲရည် (အခေါက်ရွှေ)', pe15: '၁၅ ပဲရည်' },
-    fxNote: 'ကမ္ဘာ့ရွှေစျေးမှ ခန့်မှန်းတွက်ချက်ထားခြင်း ဖြစ်သည်။ ပြည်တွင်းရွှေဆိုင်များသည် ပြင်ပငွေလဲနှုန်းဖြင့် စျေးသတ်မှတ်ပြီး ပရီမီယံ ထပ်ပေါင်းသောကြောင့် တိုက်ရိုက်ဒေတာနှုန်းနှင့် ကွာခြားနိုင်သည် — ပိုမိုနီးစပ်သော ပြည်တွင်းစျေးအတွက် ယနေ့ ပြင်ပငွေလဲနှုန်းကို ထည့်ပါ။',
-    kyat: 'ကျပ်',
-    lakh: 'သိန်း',
-    sourceNote: (source) => `စျေးနှုန်းရင်းမြစ် ${source}: PAX Gold (PAXG/USDT) — တိုကင်တစ်ခုလျှင် London ရွှေ ၁ ထရိုင်အောင်စဖြင့် အာမခံထားပြီး ကမ္ဘာ့ရွှေစျေး (XAU/USD) နှင့် နီးကပ်စွာ လိုက်ပါသည်။`,
+    sourceNote: (symbol, name) => `စျေးနှုန်းရင်းမြစ်: Bybit ${symbol} (${name}) အများသုံး စျေးကွက်ဒေတာ — မှတ်တမ်းအတွက် REST၊ တိုက်ရိုက်စျေးအတွက် WebSocket။ ဇယားကို TradingView Lightweight Charts ဖြင့် ပြသထားသည်။`,
     disclaimer: 'ခန့်မှန်းချက်များသည် ယခင်စျေးနှုန်းများကိုသာ အခြေခံသော စာရင်းအင်းဆိုင်ရာ ခန့်မှန်းချက်များ ဖြစ်သည် (log စျေးနှုန်းအပေါ် damped-trend smoothing နှင့် မကြာသေးမီ အတက်အကျနှုန်းမှ အပိုင်းအခြားများ)။ သတင်းများ သို့မဟုတ် ဗဟိုဘဏ်ဆုံးဖြတ်ချက်များကို ကြိုမမြင်နိုင်ပါ၊ ငွေကြေးဆိုင်ရာ အကြံဉာဏ် မဟုတ်ပါ၊ ရွှေစျေးသည် ဤအပိုင်းအခြားများ ပြင်ပသို့ ရောက်နိုင်ပါသည်။',
   },
   th: {
     title: 'พยากรณ์ราคาทองคำ',
-    subtitle: 'ราคาทองคำโลกแบบสด พร้อมการพยากรณ์เชิงสถิติ ช่วงราคาที่น่าจะเป็น และการตรวจสอบความแม่นยำอย่างตรงไปตรงมา',
-    status: { loading: 'กำลังโหลดราคา…', live: 'สด', stale: 'แสดงราคาที่โหลดล่าสุด', offline: 'ไม่สามารถเชื่อมต่อแหล่งราคา' },
+    subtitle: 'ราคาทองคำสดจาก Bybit TradFi พร้อมกราฟสไตล์ TradingView และการพยากรณ์เชิงสถิติ',
+    status: { loading: 'กำลังโหลดราคา Bybit…', live: 'สด', stale: 'แสดงราคาที่โหลดล่าสุด', offline: 'เชื่อมต่อแหล่งราคา Bybit ไม่ได้' },
+    stream: { connecting: 'กำลังเชื่อมต่อ…', live: 'เรียลไทม์', reconnecting: 'กำลังเชื่อมต่อใหม่…' },
     retry: 'ลองอีกครั้ง',
     updated: 'อัปเดต',
-    units: { usd_oz: 'USD / ออนซ์', usd_g: 'USD / กรัม', mmk_kyattha: 'MMK / ကျပ်သား', thb_baht: 'THB / ทอง 1 บาท' },
+    marketType: { linear: 'TradFi Perpetual', spot: 'Spot' },
+    ticker: { change24h: 'เปลี่ยนแปลง 24 ชม.', high24h: 'สูงสุด 24 ชม.', low24h: 'ต่ำสุด 24 ชม.', markPrice: 'ราคา Mark', indexPrice: 'Index (ทองสปอต)', buySell: 'Buy / Sell', turnover24h: 'มูลค่าซื้อขาย 24 ชม.', fundingRate: 'Funding rate' },
+    fallbackNotice: (symbol) => `ขณะนี้ดึง Bybit XAUUSDT ไม่ได้ จึงแสดง Bybit ${symbol} แทน ราคาอาจต่างจากทองคำ Bybit TradFi`,
+    mt5Note: 'สัญลักษณ์ MT5 ของ Bybit TradFi (XAUUSD.s) ไม่มีแหล่งราคาสาธารณะ XAUUSDT คือสัญญา TradFi perpetual ทองคำของ Bybit บน API สาธารณะ ซึ่งอ้างอิงทองคำสปอตเดียวกัน ราคาจึงมักต่างกันเพียงไม่กี่ดอลลาร์',
+    chart: {
+      candles: 'แท่งเทียน',
+      line: 'เส้น',
+      studies: { volume: 'Vol', ma20: 'MA 20', ma50: 'MA 50', bb: 'BB', rsi: 'RSI', forecast: 'พยากรณ์' },
+      reset: 'รีเซ็ต',
+      fullscreen: 'เต็มจอ',
+      exitFullscreen: 'ออก',
+      hint: 'เลื่อนหรือจีบนิ้วเพื่อซูม · ลากเพื่อเลื่อน · ลากแกนเพื่อยืด · ดับเบิลคลิกที่แกนเพื่อรีเซ็ต',
+      forecastOnDaily: 'เปลี่ยนเป็น 1D เพื่อดูเส้นพยากรณ์บนกราฟ',
+      loading: 'กำลังโหลดกราฟ…',
+      error: 'โหลดข้อมูลกราฟ Bybit ไม่ได้',
+    },
+    legend: { forecast: 'พยากรณ์' },
+    forecastTitle: 'การพยากรณ์',
+    forecastSubtitle: 'คำนวณจากราคาปิดรายวันของ Bybit',
+    lastPrice: 'ราคาล่าสุด',
     days: (h) => `${h} วัน`,
-    currentPrice: 'ราคาปัจจุบัน',
-    today: 'วันนี้',
     forecastIn: (h) => `พยากรณ์อีก ${h} วัน`,
     vsToday: 'เทียบกับวันนี้',
     likelyRange: 'ช่วงที่น่าจะเป็น (80%)',
     rangeHint: 'มีโอกาส 8 ใน 10 ที่ราคาจะอยู่ในช่วงนี้',
     chanceHigher: 'โอกาสที่ราคาจะสูงขึ้น',
-    chartTitle: 'ประวัติราคาและการพยากรณ์',
-    chartSubtitle: '90 วันที่ผ่านมา และการพยากรณ์พร้อมช่วง 80% / 95%',
-    convertedNote: 'แปลงด้วยอัตราแลกเปลี่ยนวันนี้',
-    legend: { history: 'ราคา', forecast: 'พยากรณ์', band80: 'ช่วง 80%', band95: 'ช่วง 95%' },
     signalsTitle: 'สัญญาณตลาด',
     trend: 'แนวโน้ม',
     trendValues: { up: 'ขาขึ้น', down: 'ขาลง', sideways: 'ไซด์เวย์' },
@@ -151,167 +174,35 @@ const goldText = {
     notEnoughData: 'ยังมีประวัติราคาไม่พอสำหรับทดสอบระยะนี้',
     tableTitle: 'ตารางพยากรณ์',
     columns: { horizon: 'ระยะเวลา', date: 'วันที่', forecast: 'พยากรณ์', range: 'ช่วง 80%', chance: 'โอกาสขึ้น' },
-    localTitle: 'ตั้งค่าราคาทองเมียนมา',
-    fxRate: 'อัตราแลกเปลี่ยน (จ๊าดต่อ 1 USD)',
-    useLiveRate: 'ใช้อัตราสด',
-    liveRate: 'อัตราจากแหล่งข้อมูลสด',
-    purity: 'ความบริสุทธิ์ของทอง',
-    purityOptions: { pe16: '16 pe (ทองบริสุทธิ์)', pe15: '15 pe' },
-    fxNote: 'ประเมินจากราคาทองคำโลก ร้านทองในเมียนมาใช้อัตราแลกเปลี่ยนตลาดและบวกค่าพรีเมียมของตนเอง ซึ่งอาจต่างจากอัตราสด — ใส่อัตราตลาดของวันนี้เพื่อให้ได้ราคาใกล้เคียงยิ่งขึ้น',
-    kyat: 'จ๊าด',
-    lakh: null,
-    sourceNote: (source) => `ราคาจาก ${source}: PAX Gold (PAXG/USDT) โทเคนที่มีทองคำลอนดอนหนุนหลัง 1 ทรอยออนซ์ต่อโทเคน และเคลื่อนไหวใกล้เคียงราคาทองคำโลก (XAU/USD)`,
+    sourceNote: (symbol, name) => `ราคา: ข้อมูลตลาดสาธารณะของ Bybit ${symbol} (${name}) — REST สำหรับข้อมูลย้อนหลัง, WebSocket สำหรับราคาสด กราฟโดย TradingView Lightweight Charts`,
     disclaimer: 'การพยากรณ์เป็นการประมาณการทางสถิติจากราคาในอดีตเท่านั้น (damped-trend smoothing บน log ราคา พร้อมช่วงจากความผันผวนล่าสุด) ไม่สามารถคาดการณ์ข่าวหรือการตัดสินใจของธนาคารกลางได้ ไม่ใช่คำแนะนำทางการเงิน และราคาทองคำอาจเคลื่อนไหวนอกช่วงเหล่านี้',
   },
 };
 
+const formatUsd = (value) => (Number.isFinite(value) ? `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—');
+const formatPlain = (value) => (Number.isFinite(value) ? value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—');
 const formatPercent = (value, digits = 2) => (Number.isFinite(value) ? `${value >= 0 ? '+' : ''}${(value * 100).toFixed(digits)}%` : '—');
+const formatCompact = (value) => (Number.isFinite(value) ? value.toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 2 }) : '—');
 
-const formatAxisValue = (value) => {
-  if (value >= 100000) return value.toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 2 });
-  return value.toLocaleString('en-US', { maximumFractionDigits: value >= 1000 ? 0 : 1 });
-};
-
-const readStoredRate = () => {
-  try {
-    return window.localStorage.getItem(MMK_RATE_STORAGE_KEY) || '';
-  } catch {
-    return '';
-  }
-};
-
-function useElementWidth(fallback) {
-  const ref = useRef(null);
-  const [width, setWidth] = useState(fallback);
-  useEffect(() => {
-    const element = ref.current;
-    if (!element || typeof ResizeObserver === 'undefined') return undefined;
-    const observer = new ResizeObserver(([entry]) => setWidth(Math.max(260, Math.round(entry.contentRect.width))));
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-  return [ref, width];
-}
-
-function GoldChart({ history, forecast, darkMode, formatPrice, formatDate, t }) {
-  const [containerRef, width] = useElementWidth(640);
-  const [hoverIndex, setHoverIndex] = useState(null);
-  const height = 300;
-  const padding = { top: 16, right: 60, bottom: 30, left: 6 };
-  const colors = darkMode
-    ? { history: '#fbbf24', forecast: '#22d3ee', grid: '#1e293b', text: '#94a3b8', tooltip: 'bg-slate-900 border-slate-700' }
-    : { history: '#d97706', forecast: '#0891b2', grid: '#e2e8f0', text: '#64748b', tooltip: 'bg-white border-slate-200' };
-
-  const last = history[history.length - 1];
-  const anchor = { time: last.time, price: last.price, low80: last.price, high80: last.price, low95: last.price, high95: last.price };
-  const points = [...history, ...forecast.map((point) => ({ ...point, isForecast: true }))];
-  const minTime = points[0].time;
-  const maxTime = points[points.length - 1].time;
-  const values = [...history.map((point) => point.price), ...forecast.flatMap((point) => [point.low95, point.high95])];
-  const rawMin = Math.min(...values);
-  const rawMax = Math.max(...values);
-  const pad = (rawMax - rawMin) * 0.08 || rawMax * 0.01;
-  const minValue = rawMin - pad;
-  const maxValue = rawMax + pad;
-  const plotWidth = width - padding.left - padding.right;
-  const plotHeight = height - padding.top - padding.bottom;
-  const x = (time) => padding.left + ((time - minTime) / Math.max(maxTime - minTime, 1)) * plotWidth;
-  const y = (value) => padding.top + ((maxValue - value) / (maxValue - minValue)) * plotHeight;
-  const polyline = (items) => items.map((point) => `${x(point.time).toFixed(1)},${y(point.price).toFixed(1)}`).join(' ');
-  const band = (lowKey, highKey) => {
-    const sequence = [anchor, ...forecast];
-    return [
-      ...sequence.map((point) => `${x(point.time).toFixed(1)},${y(point[highKey]).toFixed(1)}`),
-      ...[...sequence].reverse().map((point) => `${x(point.time).toFixed(1)},${y(point[lowKey]).toFixed(1)}`),
-    ].join(' ');
-  };
-  const yTicks = [0, 1, 2, 3, 4].map((index) => minValue + ((maxValue - minValue) * index) / 4);
-  const xTickCount = width < 480 ? 3 : 5;
-  const xTicks = Array.from({ length: xTickCount }, (_, index) => minTime + ((maxTime - minTime) * index) / (xTickCount - 1));
-
-  const handlePointerMove = (event) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const pointerX = ((event.clientX - rect.left) / rect.width) * width;
-    let nearest = 0;
-    points.forEach((point, index) => {
-      if (Math.abs(x(point.time) - pointerX) < Math.abs(x(points[nearest].time) - pointerX)) nearest = index;
-    });
-    setHoverIndex(nearest);
-  };
-
-  const hovered = hoverIndex !== null ? points[hoverIndex] : null;
-  const hoveredX = hovered ? x(hovered.time) : 0;
-
-  return (
-    <div ref={containerRef} className="relative w-full">
-      <svg
-        width={width}
-        height={height}
-        viewBox={`0 0 ${width} ${height}`}
-        role="img"
-        aria-label={t.chartTitle}
-        className="block select-none"
-        style={{ touchAction: 'pan-y' }}
-        onPointerMove={handlePointerMove}
-        onPointerLeave={() => setHoverIndex(null)}
-      >
-        {yTicks.map((tick) => (
-          <g key={tick}>
-            <line x1={padding.left} x2={width - padding.right} y1={y(tick)} y2={y(tick)} stroke={colors.grid} strokeWidth="1" />
-            <text x={width - padding.right + 6} y={y(tick) + 4} fontSize="11" fill={colors.text}>{formatAxisValue(tick)}</text>
-          </g>
-        ))}
-        {xTicks.map((tick, index) => (
-          <text key={tick} x={x(tick)} y={height - 8} fontSize="11" fill={colors.text} textAnchor={index === 0 ? 'start' : index === xTickCount - 1 ? 'end' : 'middle'}>{formatDate(tick)}</text>
-        ))}
-        <polygon points={band('low95', 'high95')} fill={colors.forecast} opacity="0.12" />
-        <polygon points={band('low80', 'high80')} fill={colors.forecast} opacity="0.22" />
-        <line x1={x(last.time)} x2={x(last.time)} y1={padding.top} y2={height - padding.bottom} stroke={colors.text} strokeDasharray="3 4" strokeWidth="1" />
-        <text x={x(last.time) - 4} y={padding.top + 10} fontSize="10" fill={colors.text} textAnchor="end">{t.today}</text>
-        <polyline points={polyline(history)} fill="none" stroke={colors.history} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-        <polyline points={polyline([anchor, ...forecast])} fill="none" stroke={colors.forecast} strokeWidth="2" strokeDasharray="6 4" strokeLinejoin="round" strokeLinecap="round" />
-        {hovered && (
-          <g pointerEvents="none">
-            <line x1={hoveredX} x2={hoveredX} y1={padding.top} y2={height - padding.bottom} stroke={colors.text} strokeWidth="1" />
-            <circle cx={hoveredX} cy={y(hovered.price)} r="4.5" fill={hovered.isForecast ? colors.forecast : colors.history} stroke={darkMode ? '#0f172a' : '#ffffff'} strokeWidth="2" />
-          </g>
-        )}
-      </svg>
-      {hovered && (
-        <div
-          className={`pointer-events-none absolute top-2 z-10 rounded-xl border px-3 py-2 text-xs shadow-xl ${colors.tooltip}`}
-          style={{ left: Math.min(Math.max(hoveredX - 80, 0), width - 170), width: 170 }}
-        >
-          <div className="opacity-60">{formatDate(hovered.time)}{hovered.isForecast ? ` · ${t.legend.forecast}` : ''}</div>
-          <div className="font-black tabular-nums text-sm mt-0.5">{formatPrice(hovered.price)}</div>
-          {hovered.isForecast && <div className="opacity-70 mt-0.5 tabular-nums text-[11px]">{formatPrice(hovered.low80)} – {formatPrice(hovered.high80)}</div>}
-        </div>
-      )}
-      <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3 text-[11px] opacity-80">
-        <span className="flex items-center gap-1.5"><span className="inline-block w-4 h-0.5 rounded" style={{ background: colors.history }} />{t.legend.history}</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block w-4 border-t-2 border-dashed" style={{ borderColor: colors.forecast }} />{t.legend.forecast}</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ background: colors.forecast, opacity: 0.4 }} />{t.legend.band80}</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ background: colors.forecast, opacity: 0.18 }} />{t.legend.band95}</span>
-      </div>
-    </div>
-  );
-}
-
-export default function GoldPredictor({ darkMode, language, fxRates }) {
+export default function GoldPredictor({ darkMode, language }) {
   const t = goldText[language] || goldText.en;
-  const [feed, setFeed] = useState({ status: 'loading', candles: [], source: '', updatedAt: null });
+  const [feed, setFeed] = useState({ status: 'loading', market: null, candles: [], updatedAt: null });
+  const [ticker, setTicker] = useState({});
+  const [streamStatus, setStreamStatus] = useState('connecting');
   const [reloadKey, setReloadKey] = useState(0);
   const [horizon, setHorizon] = useState(7);
-  const [unit, setUnit] = useState(language === 'my' ? 'mmk_kyattha' : 'usd_oz');
-  const [purity, setPurity] = useState(1);
-  const [mmkRateInput, setMmkRateInput] = useState(readStoredRate);
 
+  // Daily history: picks the Bybit market once, then refreshes it every minute.
   useEffect(() => {
     const controller = new AbortController();
+    let market = null;
     const load = async () => {
       try {
-        const { source, candles } = await fetchGoldHistory(controller.signal);
-        setFeed({ status: 'live', candles, source, updatedAt: Date.now() });
+        const result = market
+          ? { market, candles: await fetchKlines(market, 'D', { limit: 400, signal: controller.signal }) }
+          : await fetchGoldHistory(controller.signal);
+        market = result.market;
+        setFeed({ status: 'live', market, candles: result.candles, updatedAt: Date.now() });
       } catch {
         if (!controller.signal.aborted) setFeed((previous) => ({ ...previous, status: previous.candles.length ? 'stale' : 'offline' }));
       }
@@ -325,41 +216,42 @@ export default function GoldPredictor({ darkMode, language, fxRates }) {
     };
   }, [reloadKey]);
 
+  // Live ticker: WebSocket for real-time updates, REST polling as a backstop.
+  const { market, candles } = feed;
+  const marketKey = market ? `${market.category}:${market.symbol}` : '';
   useEffect(() => {
-    try {
-      if (mmkRateInput) window.localStorage.setItem(MMK_RATE_STORAGE_KEY, mmkRateInput);
-      else window.localStorage.removeItem(MMK_RATE_STORAGE_KEY);
-    } catch {
-      // Storage can be unavailable (private mode); the rate just won't be remembered.
-    }
-  }, [mmkRateInput]);
+    if (!market) return undefined;
+    const controller = new AbortController();
+    const merge = (data) => setTicker((previous) => ({ ...previous, ...data }));
+    setTicker({});
+    const poll = () => fetchTicker(market, controller.signal).then(merge).catch(() => {});
+    poll();
+    const pollTimer = setInterval(poll, 15000);
+    const closeStream = openBybitStream(market.category, [`tickers.${market.symbol}`], {
+      onMessage: (message) => {
+        if (message.type === 'ticker') merge(message.ticker);
+      },
+      onStatus: setStreamStatus,
+    });
+    return () => {
+      controller.abort();
+      clearInterval(pollTimer);
+      closeStream();
+    };
+  }, [marketKey]);
 
-  const { candles } = feed;
   const ready = candles.length >= MIN_HISTORY;
   const forecast = useMemo(() => (ready ? buildForecast(candles, 30) : null), [candles, ready]);
   const signals = useMemo(() => (ready ? marketSignals(candles) : null), [candles, ready]);
   const accuracy = useMemo(() => (ready ? backtest(candles, horizon) : null), [candles, horizon, ready]);
+  const chartForecast = useMemo(() => (forecast ? forecast.path.slice(0, horizon) : null), [forecast, horizon]);
 
-  const liveMmkRate = fxRates?.MMK;
-  const mmkRate = Number(mmkRateInput) > 0 ? Number(mmkRateInput) : liveMmkRate;
-  const factor = unitFactor(unit, { mmkRate, thbRate: fxRates?.THB, purity });
-  const digits = unit === 'mmk_kyattha' || unit === 'thb_baht' ? 0 : 2;
-  const formatPrice = (usdPerOunce) => {
-    const value = usdPerOunce * factor;
-    if (!Number.isFinite(value)) return '—';
-    const amount = value.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
-    if (unit === 'mmk_kyattha') return `${amount} ${t.kyat}`;
-    return unit === 'thb_baht' ? `฿${amount}` : `$${amount}`;
-  };
-  const formatLakh = (usdPerOunce) => {
-    const value = (usdPerOunce * factor) / 100000;
-    return unit === 'mmk_kyattha' && t.lakh && Number.isFinite(value) ? `≈ ${value.toLocaleString('en-US', { maximumFractionDigits: 1 })} ${t.lakh}` : null;
-  };
   const dateLocale = dateLocales[language] || dateLocales.en;
   const formatDate = (time) => new Intl.DateTimeFormat(dateLocale, { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(time);
   const formatTime = (time) => new Intl.DateTimeFormat(dateLocale, { hour: '2-digit', minute: '2-digit' }).format(time);
 
   const card = `${darkMode ? 'bg-[#12161f] border-slate-800' : 'bg-white border-slate-200'} border rounded-3xl p-5 shadow-xl`;
+  const tile = `rounded-2xl p-3 ${darkMode ? 'bg-slate-900/70' : 'bg-slate-50'}`;
   const pill = (active) => `shrink-0 px-4 py-2.5 rounded-xl text-xs font-bold transition ${active ? 'bg-amber-500 text-slate-950' : darkMode ? 'bg-slate-900 text-slate-400 hover:text-white' : 'bg-slate-100 text-slate-600 hover:text-slate-900'}`;
   const changeColor = (value) => (value >= 0 ? 'text-emerald-400' : 'text-rose-400');
   const accent = darkMode ? 'text-amber-400' : 'text-amber-600';
@@ -367,11 +259,22 @@ export default function GoldPredictor({ darkMode, language, fxRates }) {
     ? darkMode ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20' : 'text-emerald-800 bg-emerald-50 border-emerald-200'
     : darkMode ? 'text-amber-300 bg-amber-500/10 border-amber-500/20' : 'text-amber-800 bg-amber-50 border-amber-200');
   const statusColor = feed.status === 'live' ? 'text-emerald-400' : feed.status === 'offline' ? 'text-rose-400' : 'text-amber-400';
+
+  const lastPrice = ticker.lastPrice ?? signals?.price;
   const target = forecast?.path[horizon - 1];
+  const tickerStats = market ? [
+    [t.ticker.high24h, formatPlain(ticker.high24h)],
+    [t.ticker.low24h, formatPlain(ticker.low24h)],
+    ...(market.category === 'linear' ? [[t.ticker.markPrice, formatPlain(ticker.markPrice)], [t.ticker.indexPrice, formatPlain(ticker.indexPrice)]] : []),
+    // Same order as the Bybit app: Buy is the ask, Sell is the bid.
+    [t.ticker.buySell, `${formatPlain(ticker.ask)} / ${formatPlain(ticker.bid)}`],
+    [t.ticker.turnover24h, `${formatCompact(ticker.turnover24h)} USDT`],
+    ...(market.category === 'linear' ? [[t.ticker.fundingRate, Number.isFinite(ticker.fundingRate) ? `${(ticker.fundingRate * 100).toFixed(4)}%` : '—']] : []),
+  ] : [];
 
   return (
     // data-localized keeps App's DOM text translator from rewriting these already-translated strings.
-    <div data-localized className="max-w-6xl mx-auto space-y-6">
+    <div data-localized className="max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
           <h2 className="text-2xl font-black text-amber-400">{t.title}</h2>
@@ -385,16 +288,7 @@ export default function GoldPredictor({ darkMode, language, fxRates }) {
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {UNITS.map((option) => <button key={option} type="button" onClick={() => setUnit(option)} className={pill(unit === option)}>{t.units[option]}</button>)}
-        </div>
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {FORECAST_HORIZONS.map((option) => <button key={option} type="button" onClick={() => setHorizon(option)} className={pill(horizon === option)}>{t.days(option)}</button>)}
-        </div>
-      </div>
-
-      {!ready && (
+      {!market && (
         <div className={`${card} text-center py-16`}>
           {feed.status === 'offline'
             ? <><p className="font-bold text-rose-400">{t.status.offline}</p><button type="button" onClick={() => setReloadKey((key) => key + 1)} className="mt-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-5 py-2.5 rounded-xl text-xs">{t.retry}</button></>
@@ -402,25 +296,71 @@ export default function GoldPredictor({ darkMode, language, fxRates }) {
         </div>
       )}
 
+      {market && (
+        <>
+          <div className={card}>
+            <div className="flex flex-col xl:flex-row xl:items-center gap-5">
+              <div className="flex items-center gap-4 shrink-0">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-300 to-amber-600 flex items-center justify-center text-slate-950 font-black">Au</div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-black">{market.symbol}</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-500">Bybit · {t.marketType[market.category]}</span>
+                  </div>
+                  <div className="text-xs opacity-60">{market.name}</div>
+                </div>
+              </div>
+              <div className="shrink-0">
+                <div className={`text-3xl font-black tabular-nums ${accent}`}>{formatPlain(lastPrice)} <span className="text-xs font-bold opacity-60">USDT</span></div>
+                <div className="text-xs mt-0.5 flex items-center gap-2">
+                  <span className={`font-bold ${changeColor(ticker.change24h)}`}>{formatPercent(ticker.change24h)}</span>
+                  <span className="opacity-60">{t.ticker.change24h}</span>
+                  <span className={`font-bold ${streamStatus === 'live' ? 'text-emerald-400' : 'text-amber-400'}`}>● {t.stream[streamStatus]}</span>
+                </div>
+              </div>
+              <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 text-xs flex-1">
+                {tickerStats.map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="opacity-60">{label}</dt>
+                    <dd className="font-bold tabular-nums mt-0.5">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+            {!market.primary && <p className={`text-xs mt-4 rounded-xl px-4 py-3 border ${notice(false)}`}>{t.fallbackNotice(market.symbol)}</p>}
+            <p className="text-[11px] opacity-60 mt-4 leading-relaxed">{t.mt5Note}</p>
+          </div>
+
+          <GoldChart market={market} darkMode={darkMode} t={t} forecast={chartForecast} dateLocale={dateLocale} />
+        </>
+      )}
+
       {ready && forecast && signals && target && (
         <>
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pt-2">
+            <div>
+              <h3 className="text-xl font-black">{t.forecastTitle}</h3>
+              <p className="text-xs opacity-60 mt-1">{t.forecastSubtitle}</p>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {FORECAST_HORIZONS.map((option) => <button key={option} type="button" onClick={() => setHorizon(option)} className={pill(horizon === option)}>{t.days(option)}</button>)}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className={card}>
-              <div className="text-xs opacity-60">{t.currentPrice}</div>
-              <div className={`text-2xl font-black tabular-nums mt-2 break-all ${accent}`}>{formatPrice(signals.price)}</div>
-              <div className="text-xs mt-1"><span className={`font-bold ${changeColor(signals.change1d)}`}>{formatPercent(signals.change1d)}</span> <span className="opacity-60">{t.today}</span></div>
-              {formatLakh(signals.price) && <div className="text-[11px] opacity-60 mt-1">{formatLakh(signals.price)}</div>}
-              {unit === 'mmk_kyattha' && Number.isFinite(mmkRate) && <div className="text-[11px] opacity-60 mt-1">1 USD = {mmkRate.toLocaleString('en-US', { maximumFractionDigits: 2 })} {t.kyat}</div>}
+              <div className="text-xs opacity-60">{t.lastPrice}</div>
+              <div className={`text-2xl font-black tabular-nums mt-2 break-all ${accent}`}>{formatUsd(lastPrice)}</div>
+              <div className="text-xs mt-1"><span className={`font-bold ${changeColor(ticker.change24h)}`}>{formatPercent(ticker.change24h)}</span> <span className="opacity-60">{t.ticker.change24h}</span></div>
             </div>
             <div className={card}>
               <div className="text-xs opacity-60">{t.forecastIn(horizon)}</div>
-              <div className="text-2xl font-black tabular-nums mt-2 break-all">{formatPrice(target.price)}</div>
+              <div className="text-2xl font-black tabular-nums mt-2 break-all">{formatUsd(target.price)}</div>
               <div className="text-xs mt-1"><span className={`font-bold ${changeColor(target.price / signals.price - 1)}`}>{formatPercent(target.price / signals.price - 1)}</span> <span className="opacity-60">{t.vsToday}</span></div>
-              {formatLakh(target.price) && <div className="text-[11px] opacity-60 mt-1">{formatLakh(target.price)}</div>}
             </div>
             <div className={card}>
               <div className="text-xs opacity-60">{t.likelyRange}</div>
-              <div className="text-base font-black tabular-nums mt-2 leading-snug">{formatPrice(target.low80)}<span className="opacity-50"> – </span><br className="hidden lg:block" />{formatPrice(target.high80)}</div>
+              <div className="text-base font-black tabular-nums mt-2 leading-snug">{formatUsd(target.low80)}<span className="opacity-50"> – </span><br className="hidden lg:block" />{formatUsd(target.high80)}</div>
               <div className="text-[11px] opacity-60 mt-1">{t.rangeHint}</div>
             </div>
             <div className={card}>
@@ -432,23 +372,6 @@ export default function GoldPredictor({ darkMode, language, fxRates }) {
             </div>
           </div>
 
-          <div className={card}>
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-1 mb-4">
-              <div>
-                <h3 className="font-black">{t.chartTitle}</h3>
-                <p className="text-xs opacity-60 mt-1">{t.chartSubtitle}{unit === 'mmk_kyattha' || unit === 'thb_baht' ? ` ${t.convertedNote}` : ''}</p>
-              </div>
-            </div>
-            <GoldChart
-              history={candles.slice(-HISTORY_DAYS).map((candle) => ({ time: candle.time, price: candle.close }))}
-              forecast={forecast.path.slice(0, horizon)}
-              darkMode={darkMode}
-              formatPrice={formatPrice}
-              formatDate={formatDate}
-              t={t}
-            />
-          </div>
-
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className={card}>
               <h3 className="font-black mb-4">{t.signalsTitle}</h3>
@@ -456,13 +379,13 @@ export default function GoldPredictor({ darkMode, language, fxRates }) {
                 {[
                   [t.trend, t.trendValues[signals.trend], signals.trend === 'up' ? 'text-emerald-400' : signals.trend === 'down' ? 'text-rose-400' : accent],
                   [t.momentum, `${signals.rsi.toFixed(0)} · ${t.momentumValues[signals.momentum]}`, signals.momentum === 'neutral' ? '' : accent],
-                  [t.sma20, formatPrice(signals.sma20), ''],
-                  [t.sma50, formatPrice(signals.sma50), ''],
+                  [t.sma20, formatUsd(signals.sma20), ''],
+                  [t.sma50, formatUsd(signals.sma50), ''],
                   [t.change7d, formatPercent(signals.change7d), changeColor(signals.change7d)],
                   [t.change30d, formatPercent(signals.change30d), changeColor(signals.change30d)],
                   [t.volatility, `${(signals.volatility * 100).toFixed(1)}%`, ''],
                 ].map(([label, value, color]) => (
-                  <div key={label} className={`rounded-2xl p-3 ${darkMode ? 'bg-slate-900/70' : 'bg-slate-50'}`}>
+                  <div key={label} className={tile}>
                     <dt className="opacity-60">{label}</dt>
                     <dd className={`font-black tabular-nums mt-1 text-sm ${color}`}>{value}</dd>
                   </div>
@@ -482,7 +405,7 @@ export default function GoldPredictor({ darkMode, language, fxRates }) {
                       [t.directionHits, accuracy.directionAccuracy === null ? '—' : `${Math.round(accuracy.directionAccuracy * 100)}%`, ''],
                       [t.rangeCoverage, `${Math.round(accuracy.rangeCoverage * 100)}%`, ''],
                     ].map(([label, value, color]) => (
-                      <div key={label} className={`rounded-2xl p-3 ${darkMode ? 'bg-slate-900/70' : 'bg-slate-50'}`}>
+                      <div key={label} className={tile}>
                         <dt className="opacity-60">{label}</dt>
                         <dd className={`font-black tabular-nums mt-1 text-sm ${color}`}>{value}</dd>
                       </div>
@@ -520,8 +443,8 @@ export default function GoldPredictor({ darkMode, language, fxRates }) {
                       >
                         <td className="py-3 pr-3 font-bold">{t.days(option)}</td>
                         <td className="py-3 pr-3 opacity-80">{formatDate(point.time)}</td>
-                        <td className="py-3 pr-3 tabular-nums font-bold">{formatPrice(point.price)} <span className={`font-normal ${changeColor(point.price / signals.price - 1)}`}>{formatPercent(point.price / signals.price - 1)}</span></td>
-                        <td className="py-3 pr-3 tabular-nums opacity-80">{formatPrice(point.low80)} – {formatPrice(point.high80)}</td>
+                        <td className="py-3 pr-3 tabular-nums font-bold">{formatUsd(point.price)} <span className={`font-normal ${changeColor(point.price / signals.price - 1)}`}>{formatPercent(point.price / signals.price - 1)}</span></td>
+                        <td className="py-3 pr-3 tabular-nums opacity-80">{formatUsd(point.low80)} – {formatUsd(point.high80)}</td>
                         <td className="py-3 tabular-nums font-bold text-right">{Math.round(point.chanceHigher * 100)}%</td>
                       </tr>
                     );
@@ -531,42 +454,8 @@ export default function GoldPredictor({ darkMode, language, fxRates }) {
             </div>
           </div>
 
-          {unit === 'mmk_kyattha' && (
-            <div className={card}>
-              <h3 className="font-black mb-4">{t.localTitle}</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <label className="block text-xs opacity-80">
-                  {t.fxRate}
-                  <div className="flex gap-2 mt-1">
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      inputMode="decimal"
-                      value={mmkRateInput}
-                      onChange={(event) => setMmkRateInput(event.target.value)}
-                      placeholder={Number.isFinite(liveMmkRate) ? String(Math.round(liveMmkRate)) : ''}
-                      className={`w-full ${darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'} border rounded-xl px-4 py-3 text-sm tabular-nums focus:outline-none focus:border-amber-500`}
-                    />
-                    <button type="button" onClick={() => setMmkRateInput('')} disabled={!mmkRateInput} className={`shrink-0 ${accent} border border-amber-500/30 rounded-xl px-3 text-xs font-bold disabled:opacity-40`}>{t.useLiveRate}</button>
-                  </div>
-                  <span className="block mt-1 opacity-60">{t.liveRate}: {Number.isFinite(liveMmkRate) ? liveMmkRate.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '—'}</span>
-                </label>
-                <div className="text-xs opacity-80">
-                  {t.purity}
-                  <div className="grid grid-cols-2 gap-2 mt-1">
-                    {[[1, t.purityOptions.pe16], [15 / 16, t.purityOptions.pe15]].map(([value, label]) => (
-                      <button key={label} type="button" onClick={() => setPurity(value)} className={`py-3 rounded-xl text-xs font-bold ${purity === value ? 'bg-amber-500 text-slate-950' : darkMode ? 'bg-slate-900 text-slate-400' : 'bg-slate-100 text-slate-600'}`}>{label}</button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <p className="text-[11px] opacity-60 mt-4 leading-relaxed">{t.fxNote}</p>
-            </div>
-          )}
-
           <div className="text-[11px] leading-relaxed space-y-2">
-            <p className="opacity-60">{t.sourceNote(feed.source)}</p>
+            <p className="opacity-60">{t.sourceNote(market.symbol, market.name)}</p>
             <p className={`border rounded-xl px-4 py-3 ${notice(false)}`}>{t.disclaimer}</p>
           </div>
         </>
