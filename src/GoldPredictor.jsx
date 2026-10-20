@@ -75,8 +75,8 @@ const goldText = {
     fallbackNotice: (symbol) => `Bybit XAUUSDT ကို ယခု ရယူ၍မရသဖြင့် Bybit ${symbol} ကို ပြသနေသည်။ ၎င်း၏စျေးသည် Bybit TradFi ရွှေစျေးနှင့် ကွာခြားနိုင်သည်။`,
     mt5Note: 'Bybit TradFi ၏ MT5 သင်္ကေတ XAUUSD.s အတွက် အများသုံး စျေးနှုန်း API မရှိပါ။ XAUUSDT သည် Bybit ၏ အများသုံး API ပေါ်ရှိ ရွှေ TradFi perpetual ဖြစ်ပြီး spot ရွှေစျေးကို လိုက်သောကြောင့် နှစ်ခုကြား ဒေါ်လာ အနည်းငယ်သာ ကွာလေ့ရှိသည်။',
     chart: {
-      candles: 'ဖယောင်းတိုင်',
-      line: 'မျဉ်း',
+      candles: 'Candle',
+      line: 'Line',
       studies: { volume: 'Vol', ma20: 'MA 20', ma50: 'MA 50', bb: 'BB', rsi: 'RSI', forecast: 'ခန့်မှန်း' },
       reset: 'ပြန်ညှိ',
       fullscreen: 'မျက်နှာပြင်အပြည့်',
